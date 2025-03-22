@@ -26,6 +26,18 @@
       <USeparator class="my-4" />
     </div>
 
+    <!-- Error state -->
+    <UCard v-else-if="error" class="my-6 border-red-200 dark:border-red-800">
+      <div class="flex flex-col items-center justify-center py-8">
+        <UIcon name="i-heroicons-exclamation-circle" class="text-red-500 w-12 h-12 mb-4" />
+        <h3 class="text-xl font-semibold mb-2">Error Loading Applications</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
+          {{ error }}
+        </p>
+        <UButton color="primary" @click="loadApps">Try Again</UButton>
+      </div>
+    </UCard>
+
     <!-- No apps state -->
     <UCard v-else-if="accessibleApps.length === 0" class="my-6">
       <div class="flex flex-col items-center justify-center py-12">
@@ -47,7 +59,18 @@
         @click="launchApp(app)"
       >
         <div class="flex flex-col items-center p-4">
-          <AppLogo :name="app.name" :logo-url="app.logo" class="mb-4" />
+          <img
+            v-if="app.logo"
+            :src="app.logo"
+            :alt="app.name"
+            class="w-16 h-16 object-contain mb-4 rounded-lg"
+            @error="handleLogoError($event, app)"
+          />
+          <AppLogo
+            v-else
+            :name="app.name"
+            class="mb-4"
+          />
           <h3 class="text-lg font-semibold mb-2">{{ app.name }}</h3>
           <p class="text-gray-500 dark:text-gray-400 text-center mb-6">{{ app.description }}</p>
           <UButton
@@ -81,7 +104,20 @@
         </div>
       </template>
 
-      <div class="space-y-4 mt-2">
+      <!-- Loading state for all apps -->
+      <div v-if="loading" class="py-8 text-center">
+        <UIcon name="i-heroicons-arrow-path" class="text-gray-400 dark:text-gray-600 w-8 h-8 animate-spin mb-2 mx-auto" />
+        <p class="text-gray-500 dark:text-gray-400">Loading applications...</p>
+      </div>
+
+      <!-- No apps to request -->
+      <div v-else-if="allApps.length === 0" class="py-8 text-center">
+        <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-600 w-8 h-8 mb-2 mx-auto" />
+        <p class="text-gray-500 dark:text-gray-400">No applications available to request.</p>
+      </div>
+
+      <!-- Apps list -->
+      <div v-else class="space-y-4 mt-2">
         <UCard
           v-for="app in allApps"
           :key="app.id"
@@ -89,7 +125,19 @@
           class="bg-gray-50 dark:bg-gray-800"
         >
           <div class="flex items-center">
-            <AppLogo :name="app.name" :logo-url="app.logo" class="mr-4" />
+            <img
+              v-if="app.logo"
+              :src="app.logo"
+              :alt="app.name"
+              class="w-12 h-12 object-contain mr-4 rounded-lg"
+              @error="handleLogoError($event, app)"
+            />
+            <AppLogo
+              v-else
+              :name="app.name"
+              class="mr-4"
+              :class="{ 'w-12 h-12': true }"
+            />
             <div class="flex-1">
               <h4 class="font-medium">{{ app.name }}</h4>
               <p class="text-gray-500 dark:text-gray-400 text-sm">{{ app.description }}</p>
@@ -108,7 +156,8 @@
               variant="soft"
               size="sm"
               @click.stop="requestAccess(app.id)"
-              :disabled="requestedApps.includes(app.id)"
+              :disabled="requestedApps.includes(app.id) || requestingAccess"
+              :loading="requestingAccessFor === app.id"
               :icon="requestedApps.includes(app.id) ? 'i-heroicons-check' : 'i-heroicons-key'"
               class="ml-4"
             >
@@ -127,37 +176,59 @@ import { appService } from '../services/apps';
 import AppLogo from '../components/AppLogo.vue';
 
 const loading = ref(true);
+const error = ref(null);
 const accessibleApps = ref([]);
 const allApps = ref([]);
 const showAllApps = ref(false);
 const requestedApps = ref([]);
-const toast = useToast(); // Use the toast composable
+const requestingAccess = ref(false);
+const requestingAccessFor = ref(null);
+const toast = useToast();
 
-onMounted(async () => {
-  try {
-    // Simulate loading delay for demo purposes
-    setTimeout(async () => {
-      const data = await appService.getApps();
-      accessibleApps.value = data.accessibleApps;
-      allApps.value = data.allApps;
-      loading.value = false;
-    }, 1000);
-  } catch (error) {
-    console.error('Failed to load apps', error);
-    loading.value = false;
-  }
+onMounted(() => {
+  loadApps();
 });
 
-const launchApp = (app) => {
-  window.location.href = app.redirectUri;
-};
-
-const requestAccess = async (appId) => {
+async function loadApps() {
   try {
+    loading.value = true;
+    error.value = null;
+
+    const data = await appService.getApps();
+    accessibleApps.value = data.accessibleApps;
+    allApps.value = data.allApps;
+
+    console.log(`Loaded ${accessibleApps.value.length} accessible apps and ${allApps.value.length} total apps`);
+  } catch (err) {
+    console.error('Failed to load apps', err);
+    error.value = err.response?.data?.message || 'Failed to load applications. Please try again.';
+  } finally {
+    loading.value = false;
+  }
+}
+
+function launchApp(app) {
+  if (app.redirectUri && app.redirectUri !== '#') {
+    window.open(app.redirectUri, '_blank');
+  } else {
+    toast.add({
+      title: 'Launch Failed',
+      description: 'This application does not have a valid launch URL.',
+      icon: 'i-heroicons-exclamation-circle',
+      color: 'amber',
+      timeout: 5000
+    });
+  }
+}
+
+async function requestAccess(appId) {
+  try {
+    requestingAccess.value = true;
+    requestingAccessFor.value = appId;
+
     await appService.requestAccess(appId);
     requestedApps.value.push(appId);
 
-    // Show notification using the toast composable
     toast.add({
       title: 'Access Requested',
       description: 'Your request has been submitted to the administrator.',
@@ -168,7 +239,6 @@ const requestAccess = async (appId) => {
   } catch (error) {
     console.error('Failed to request access', error);
 
-    // Show error notification
     toast.add({
       title: 'Request Failed',
       description: 'There was an error submitting your request. Please try again.',
@@ -176,8 +246,15 @@ const requestAccess = async (appId) => {
       color: 'red',
       timeout: 5000
     });
+  } finally {
+    requestingAccess.value = false;
+    requestingAccessFor.value = null;
   }
-};
-</script>
+}
 
-<!-- Rest of your template remains the same -->
+function handleLogoError(event, app) {
+  console.warn(`Failed to load logo for app ${app.id}`, event);
+  // Remove the logo URL to fall back to AppLogo component
+  app.logo = null;
+}
+</script>

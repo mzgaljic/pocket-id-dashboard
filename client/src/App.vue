@@ -91,12 +91,12 @@ const userMenuItems = computed(() => [
     {
       label: 'Profile',
       icon: 'i-heroicons-user-circle',
-      click: () => router.push('/profile')
+      onSelect: () => router.push('/profile')
     },
     {
       label: 'Settings',
       icon: 'i-heroicons-cog-6-tooth',
-      click: () => router.push('/settings')
+      onSelect: () => router.push('/settings')
     }
   ],
   [
@@ -104,7 +104,7 @@ const userMenuItems = computed(() => [
       label: isLoggingOut.value ? 'Logging out...' : 'Sign Out',
       icon: isLoggingOut.value ? 'i-heroicons-arrow-path' : 'i-heroicons-arrow-right-on-rectangle',
       disabled: isLoggingOut.value,
-      click: () => logout(),
+      onSelect: () => logout(),
     }
   ]
 ]);

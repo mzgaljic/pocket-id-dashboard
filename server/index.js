@@ -32,6 +32,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const sessionConfig = {
     name: process.env.SESSION_COOKIE_NAME || 'pocket_id_session',
