@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* Dark mode styles */
+/* Theme variables */
+:root {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+  --card-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --dropdown-bg: #ffffff;
+}
+.dark {
+  --bg-color: #111827;
+  --text-color: #ffffff;
+  --card-bg: #1f2937;
+  --border-color: #374151;
+  --dropdown-bg: #1f2937;
+}
+
+/* Apply variables */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Theme transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+body,
+.u-card,
+.u-button,
+.u-dropdown-items,
+.u-dropdown-menu,
+[data-floating-ui-portal] > div,
+[data-headlessui-state="open"] > div,
+.u-container,
+.u-avatar,
+.u-input,
+.u-select,
+.u-textarea,
+.u-checkbox,
+.u-radio,
+.u-switch,
+.u-badge {
+  transition: background-color 0.3s ease,
+  color 0.3s ease,
+  border-color 0.3s ease,
+  box-shadow 0.3s ease;
+}
+/* Ensure transitions don't affect performance */
+@media (prefers-reduced-motion: reduce) {
+  html, body, * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Fix UDropdownMenu transparency bug */
+div[role="menu"] {
+  background-color: white !important;
+}
+.dark div[role="menu"] {
+  background-color: #1f2937 !important;
+}
+/* make sure hover works */
+div[role="menu"] [role="menuitem"]:hover {
+  background-color: #f3f4f6 !important;
+}
+.dark div[role="menu"] [role="menuitem"]:hover {
+  background-color: #374151 !important;
+}
+
+/* Fix toast transparency bug */
+li[role="alert"].group.overflow-hidden {
+  /* Force a solid background in light mode */
+  background-color: white !important;
+  color: black !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.dark li[role="alert"].group.overflow-hidden {
+  /* Force a solid background in dark mode */
+  background-color: #1f2937 !important;
+  color: white !important;
+}
+
+/* Custom responsive styles */
+@media (max-width: 768px) {
+  .app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-header > div:last-child {
+    margin-top: 1rem;
+    align-self: flex-end;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .app-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-logo-small {
+    margin-bottom: 0.75rem;
+  }
+
+  .app-action {
+    margin-left: 0;
+    margin-top: 1rem;
+    align-self: flex-end;
+  }
+}
