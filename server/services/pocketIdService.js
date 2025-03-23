@@ -4,7 +4,7 @@ const https = require('https');
 const logger = require('../utils/logger');
 
 // Base URL for the Pocket-ID API
-const API_BASE_URL = process.env.POCKET_ID_API_URL;
+const POCKET_ID_BASE_URL = process.env.POCKET_ID_BASE_URL;
 const API_KEY = process.env.POCKET_ID_API_KEY;
 
 const httpsAgent = new https.Agent({
@@ -16,13 +16,13 @@ const httpsAgent = new https.Agent({
 
 // Create an axios instance with default headers and improved connection handling
 const apiClient = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: `${POCKET_ID_BASE_URL}/api`,
     headers: {
         'Accept': 'application/json',
         'X-API-KEY': API_KEY
     },
     httpsAgent,
-    timeout: 10000 // 10 second timeout
+    timeout: 5000 // 5 seconds
 });
 
 // Simple in-memory cache for OIDC clients list only
@@ -225,7 +225,7 @@ async function getAccessibleOIDCClients(userGroups) {
                         id: client.id,
                         name: client.name,
                         description: clientDetails.description || `Access to ${client.name}`,
-                        logo: client.hasLogo ? `${API_BASE_URL}/oidc/clients/${client.id}/logo` : null,
+                        logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                         redirectUri,
                         allowedGroups,
                         hasAccess
@@ -295,7 +295,7 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
                     id: client.id,
                     name: client.name,
                     description: clientDetails.description || `Access to ${client.name}`,
-                    logo: client.hasLogo ? `${API_BASE_URL}/oidc/clients/${client.id}/logo` : null,
+                    logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                     redirectUri,
                     allowedGroups,
                     hasAccess

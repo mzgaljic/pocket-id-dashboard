@@ -34,6 +34,7 @@ logger.info('Environment:', {
     OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET ? '[SET]' : '[NOT SET]',
     OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
     OIDC_POST_LOGOUT_REDIRECT_URI: process.env.OIDC_POST_LOGOUT_REDIRECT_URI,
+    POCKET_ID_BASE_URL: process.env.POCKET_ID_BASE_URL,
     LOG_LEVEL: process.env.LOG_LEVEL || 'info'
 });
 
@@ -181,6 +182,7 @@ async function startServer() {
         app.use(checkOIDCInitialized);
         app.use('/api/apps', auth, appRoutes);
         app.use('/auth', require('./routes/auth'));
+        app.use('/api/config', require('./routes/config'));
 
         // Handle SPA routes - this should be after all API routes
         // In development, we'll redirect to the Vue dev server

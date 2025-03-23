@@ -3,6 +3,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authService } from './services/auth';
+import { configService } from './services/config';
 
 const user = ref(null);
 const router = useRouter();
@@ -11,9 +12,10 @@ const toast = useToast();
 const isLoggingOut = ref(false);
 const loading = ref(true);
 const authError = ref(null);
+const pocketIdUserAccountUrl = ref('#');
 
 // Initialize dark mode from localStorage or system preference
-onMounted(() => {
+onMounted(async () => {
   // Check localStorage first
   const savedTheme = localStorage.getItem('color-theme');
   if (savedTheme) {
@@ -34,7 +36,13 @@ onMounted(() => {
   });
 
   // Check authentication status
-  checkAuth();
+  await checkAuth();
+
+  try {
+    pocketIdUserAccountUrl.value = await configService.getPocketIdUsersAccountUrl();
+  } catch (error) {
+    console.error('Failed to load Pocket ID account URL:', error);
+  }
 });
 
 async function checkAuth() {
@@ -91,7 +99,7 @@ const userMenuItems = computed(() => [
     {
       label: 'Profile',
       icon: 'i-heroicons-user-circle',
-      onSelect: () => router.push('/profile')
+      onSelect: () => window.open(pocketIdUserAccountUrl.value, '_blank')
     },
     {
       label: 'Settings',
