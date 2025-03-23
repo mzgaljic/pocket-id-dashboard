@@ -1,23 +1,23 @@
 // server/services/oidcService.js
 const { discovery, randomState, randomPKCECodeVerifier, calculatePKCECodeChallenge, buildAuthorizationUrl, authorizationCodeGrant } = require('openid-client');
-const crypto = require('crypto');
+const logger = require('../utils/logger');
 
 let config;
 
-// server/services/oidcService.js - Corrected initializeOIDCClient function
 async function initializeOIDCClient() {
     try {
         // Check if required environment variables are set
         if (!process.env.OIDC_DISCOVERY_URL) {
             throw new Error('OIDC_DISCOVERY_URL environment variable is not set');
         }
-
         if (!process.env.OIDC_CLIENT_ID) {
             throw new Error('OIDC_CLIENT_ID environment variable is not set');
         }
 
-        console.log('Discovering OIDC provider at:', process.env.OIDC_DISCOVERY_URL);
-        console.log('Using client ID:', process.env.OIDC_CLIENT_ID);
+        logger.info('Discovering OIDC provider', {
+            discoveryUrl: process.env.OIDC_DISCOVERY_URL,
+            clientId: process.env.OIDC_CLIENT_ID
+        });
 
         // Use the discovery function to initialize the client configuration
         config = await discovery(
@@ -26,12 +26,17 @@ async function initializeOIDCClient() {
             process.env.OIDC_CLIENT_SECRET
         );
 
-        console.log('OIDC client initialized successfully');
-        console.log('Authorization endpoint:', config.serverMetadata().authorization_endpoint);
-        console.log('Token endpoint:', config.serverMetadata().token_endpoint);
+        logger.info('OIDC client initialized successfully');
+        logger.debug('OIDC endpoints', {
+            authorizationEndpoint: config.serverMetadata().authorization_endpoint,
+            tokenEndpoint: config.serverMetadata().token_endpoint,
+            userinfoEndpoint: config.serverMetadata().userinfo_endpoint,
+            endSessionEndpoint: config.serverMetadata().end_session_endpoint
+        });
+
         return config;
     } catch (error) {
-        console.error('Error initializing OIDC client:', error);
+        logger.error('Error initializing OIDC client:', error);
         throw error;
     }
 }
@@ -43,13 +48,13 @@ function getConfig() {
     return config;
 }
 
-// server/services/oidcService.js - Fix the generateAuthUrl function
 async function generateAuthUrl(req) {
     if (!config) {
+        logger.error('Attempted to generate auth URL before OIDC client initialization');
         throw new Error('OIDC client not initialized');
     }
 
-    console.log('Generating auth URL with redirect URI:', process.env.OIDC_REDIRECT_URI);
+    logger.info(`Generating auth URL with redirect URI: ${process.env.OIDC_REDIRECT_URI}`);
 
     // Generate PKCE code verifier and challenge
     const codeVerifier = randomPKCECodeVerifier();
@@ -58,9 +63,7 @@ async function generateAuthUrl(req) {
     // Generate state for CSRF protection
     const state = randomState();
 
-    console.log('Generated PKCE code verifier and state');
-    console.log('Code verifier:', codeVerifier);
-    console.log('State:', state);
+    logger.debug('Generated PKCE and state values');
 
     // Store PKCE and state values in session for verification during callback
     req.session.codeVerifier = codeVerifier;
@@ -69,100 +72,81 @@ async function generateAuthUrl(req) {
     // Force session save to ensure values are persisted
     req.session.save((err) => {
         if (err) {
-            console.error('Error saving session:', err);
+            logger.error('Error saving session:', err);
         } else {
-            console.log('Session saved successfully with code verifier and state');
+            logger.debug('Session saved successfully with code verifier and state');
         }
     });
 
     // Build the authorization URL using the proper API
-    const authorizationUrl = new URL(config.serverMetadata().authorization_endpoint);
+    const parameters = {
+        redirect_uri: process.env.OIDC_REDIRECT_URI,
+        scope: 'openid profile email groups',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        state: state
+    };
 
-    // Add the required parameters
-    authorizationUrl.searchParams.set('client_id', process.env.OIDC_CLIENT_ID);
-    authorizationUrl.searchParams.set('response_type', 'code');
-    authorizationUrl.searchParams.set('redirect_uri', process.env.OIDC_REDIRECT_URI);
-    authorizationUrl.searchParams.set('scope', 'openid profile email groups');
-    authorizationUrl.searchParams.set('state', state);
-    authorizationUrl.searchParams.set('code_challenge', codeChallenge);
-    authorizationUrl.searchParams.set('code_challenge_method', 'S256');
+    const authorizationUrl = buildAuthorizationUrl(config, parameters);
+    logger.debug('Generated auth URL');
 
-    console.log('Generated auth URL:', authorizationUrl.href);
     return authorizationUrl.href;
 }
 
-// server/services/oidcService.js - Corrected handleCallback function
 async function handleCallback(req) {
     if (!config) {
+        logger.error('Attempted to handle callback before OIDC client initialization');
         throw new Error('OIDC client not initialized');
     }
 
-    console.log('Handling callback with query params:', req.query);
-    console.log('Session state:', req.session.state);
-    console.log('Session code verifier exists:', !!req.session.codeVerifier);
+    logger.info('Handling OIDC callback');
+    logger.debug('Callback query parameters received', {
+        code: req.query.code ? '[PRESENT]' : '[MISSING]',
+        state: req.query.state
+    });
 
-    // Verify the state parameter
-    if (req.query.state !== req.session.state) {
-        throw new Error('State parameter mismatch');
+    if (!req.session.codeVerifier) {
+        logger.error('No code verifier in session - session may have been lost');
+        throw new Error('No code verifier in session - session may have been lost');
     }
-
-    // Get the token endpoint from the configuration
-    const tokenEndpoint = config.serverMetadata().token_endpoint;
-    console.log('Token endpoint:', tokenEndpoint);
-
-    // Prepare the token request parameters
-    const params = new URLSearchParams();
-    params.append('grant_type', 'authorization_code');
-    params.append('code', req.query.code);
-    params.append('redirect_uri', process.env.OIDC_REDIRECT_URI);
-    params.append('client_id', process.env.OIDC_CLIENT_ID);
-
-    if (process.env.OIDC_CLIENT_SECRET) {
-        params.append('client_secret', process.env.OIDC_CLIENT_SECRET);
-    }
-
-    params.append('code_verifier', req.session.codeVerifier);
-
-    console.log('Token request params:', Object.fromEntries(params));
 
     try {
-        // Make the token request
-        const response = await fetch(tokenEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params
+        // Use the authorizationCodeGrant function from openid-client
+        const currentUrl = new URL(req.originalUrl, `http://${req.headers.host}`);
+        logger.debug('Exchanging authorization code for tokens');
+
+        const tokenSet = await authorizationCodeGrant(
+            config,
+            currentUrl,
+            {
+                pkceCodeVerifier: req.session.codeVerifier,
+                expectedState: req.session.state
+            }
+        );
+
+        logger.info('Token exchange successful');
+        logger.debug('Received token types', {
+            accessToken: tokenSet.access_token ? '[PRESENT]' : '[MISSING]',
+            idToken: tokenSet.id_token ? '[PRESENT]' : '[MISSING]',
+            refreshToken: tokenSet.refresh_token ? '[PRESENT]' : '[MISSING]',
+            expiresIn: tokenSet.expires_in
         });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Token exchange failed:', errorData);
-            throw new Error(`Token exchange failed: ${errorData.error}`);
-        }
-
-        const tokenSet = await response.json();
-        console.log('Token exchange successful:', Object.keys(tokenSet));
 
         // Clean up the session
         delete req.session.codeVerifier;
         delete req.session.state;
 
-        // Get user info from the ID token
+        // Extract user info from ID token
         let userinfo = {};
-
         if (tokenSet.id_token) {
-            console.log('Parsing ID token');
-            // Parse the ID token to get user info
-            const payload = JSON.parse(
-                Buffer.from(tokenSet.id_token.split('.')[1], 'base64').toString()
-            );
-
-            userinfo = payload;
-            console.log('ID token payload:', Object.keys(payload));
-            console.log('Full ID token payload:', JSON.stringify(payload, null, 2));
-        } else {
-            console.log('No ID token received');
+            // Parse the ID token to get user info (already decoded by the library)
+            userinfo = tokenSet.claims();
+            logger.debug('Extracted claims from ID token', {
+                sub: userinfo.sub,
+                email: userinfo.email ? '[PRESENT]' : '[MISSING]',
+                name: userinfo.name ? '[PRESENT]' : '[MISSING]',
+                groups: Array.isArray(userinfo.groups) ? `[${userinfo.groups.length} groups]` : '[MISSING]'
+            });
         }
 
         // Store token information and expiry
@@ -177,24 +161,28 @@ async function handleCallback(req) {
             const expiresAt = new Date();
             expiresAt.setSeconds(expiresAt.getSeconds() + tokenSet.expires_in);
             req.session.tokenExpiry = expiresAt;
+            logger.debug('Token expiry set', { expiresAt: expiresAt.toISOString() });
         }
 
         return { tokenSet, userinfo };
     } catch (error) {
-        console.error('Token exchange error:', error);
+        logger.error('Token exchange error:', error);
         throw error;
     }
 }
 
 async function logout(req) {
     if (!req.session.tokenSet) {
-        console.log('No token set in session, nothing to logout');
+        logger.info('No token set in session, nothing to logout');
         return { success: true };
     }
 
     if (!config) {
-        console.log('OIDC client not initialized, destroying session only');
-        req.session.destroy();
+        logger.warn('OIDC client not initialized, destroying session only');
+        req.session.destroy((err) => {
+            if (err) logger.error('Error destroying session:', err);
+            else logger.debug('Session destroyed successfully');
+        });
         return { success: true };
     }
 
@@ -203,28 +191,24 @@ async function logout(req) {
     // Get the end session endpoint from the server metadata
     const metadata = config.serverMetadata();
     const endSessionEndpoint = metadata.end_session_endpoint;
-
-    console.log('End session endpoint:', endSessionEndpoint);
+    logger.debug('End session endpoint:', endSessionEndpoint);
 
     // Clear the session
     req.session.destroy((err) => {
-        if (err) console.error('Error destroying session:', err);
-        else console.log('Session destroyed successfully');
+        if (err) logger.error('Error destroying session:', err);
+        else logger.debug('Session destroyed successfully');
     });
 
     // Build the end session URL if available
     if (endSessionEndpoint) {
         const logoutUrl = new URL(endSessionEndpoint);
-
         if (idToken) {
             logoutUrl.searchParams.set('id_token_hint', idToken);
         }
-
         if (process.env.OIDC_POST_LOGOUT_REDIRECT_URI) {
             logoutUrl.searchParams.set('post_logout_redirect_uri', process.env.OIDC_POST_LOGOUT_REDIRECT_URI);
         }
-
-        console.log('Constructed logout URL:', logoutUrl.href);
+        logger.info('Constructed logout URL');
         return { logoutUrl: logoutUrl.href };
     }
 

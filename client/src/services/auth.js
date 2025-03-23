@@ -31,7 +31,7 @@ export const authService = {
   async login() {
     console.log('Initiating login...');
     try {
-      // Instead of directly redirecting, first get the login URL
+      // First try to get the login URL
       const response = await axios.get(`${API_URL}/login-url`);
       const loginUrl = response.data.url;
       console.log('Redirecting to login URL:', loginUrl);
@@ -55,5 +55,3 @@ export const authService = {
     }
   }
 };
-
-

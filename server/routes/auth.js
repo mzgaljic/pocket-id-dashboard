@@ -2,138 +2,58 @@
 const express = require('express');
 const router = express.Router();
 const oidcService = require('../services/oidcService');
+const logger = require('../utils/logger');
 
 // Login route - redirects to OIDC provider
 router.get('/login', async (req, res) => {
     try {
-        console.log('Login route accessed');
+        logger.info('Login route accessed', { userId: req.session.user?.id });
         const authUrl = await oidcService.generateAuthUrl(req);
-        console.log('Generated auth URL:', authUrl);
+        logger.debug('Redirecting to auth URL');
         res.redirect(authUrl);
     } catch (error) {
-        console.error('Login error:', error);
+        logger.error('Login error:', error);
         res.status(500).json({ error: 'Authentication failed', message: error.message });
     }
 });
 
 // OIDC callback handler
-// server/routes/auth.js - Update the callback route
 router.get('/callback', async (req, res) => {
     try {
-        console.log('Callback route accessed');
-        console.log('Query parameters:', req.query);
-        console.log('Session state:', req.session.state);
-        console.log('Session code verifier exists:', !!req.session.codeVerifier);
+        logger.info('Callback route accessed');
 
-        // If we don't have the code verifier in the session, show an error
         if (!req.session.codeVerifier) {
-            console.error('No code verifier in session - session may have been lost');
+            logger.error('No code verifier in session - session may have been lost');
             return res.status(400).send('Authentication failed: Session lost or expired. Please try again.');
         }
 
-        // Store code verifier and state for debugging
-        const codeVerifier = req.session.codeVerifier;
-        const state = req.session.state;
-
         try {
             const { tokenSet, userinfo } = await oidcService.handleCallback(req);
-            console.log('Token set received:', Object.keys(tokenSet));
-            console.log('User info received:', userinfo ? Object.keys(userinfo) : 'none');
 
-            // Extract user information and group claims
+            // Extract user information
             req.session.user = {
                 id: userinfo.sub,
                 name: userinfo.name || `${userinfo.given_name || ''} ${userinfo.family_name || ''}`.trim() || userinfo.sub,
                 email: userinfo.email,
-                groups: userinfo.groups || [], // Assuming 'groups' claim is provided by Pocket-ID
+                groups: userinfo.groups || [],
                 picture: userinfo.picture
             };
 
-            console.log('User session created:', req.session.user);
+            logger.info('User authenticated successfully', {
+                userId: req.session.user.id,
+                email: req.session.user.email,
+                groupCount: req.session.user.groups.length
+            });
 
             // Redirect to the dashboard
+            logger.debug('Redirecting to dashboard');
             res.redirect('/dashboard');
         } catch (error) {
-            console.error('Token exchange error:', error);
-
-            // Let's try a more direct approach if the library is failing
-            console.log('Attempting manual token exchange as fallback...');
-
-            try {
-                // Get token endpoint from config
-                const tokenEndpoint = oidcService.getConfig().serverMetadata().token_endpoint;
-                console.log('Token endpoint:', tokenEndpoint);
-
-                // Prepare token request
-                const params = new URLSearchParams();
-                params.append('grant_type', 'authorization_code');
-                params.append('code', req.query.code);
-                params.append('redirect_uri', process.env.OIDC_REDIRECT_URI);
-                params.append('client_id', process.env.OIDC_CLIENT_ID);
-
-                if (process.env.OIDC_CLIENT_SECRET) {
-                    params.append('client_secret', process.env.OIDC_CLIENT_SECRET);
-                }
-
-                params.append('code_verifier', codeVerifier);
-
-                console.log('Token request params:', Object.fromEntries(params));
-
-                // Make token request
-                const response = await fetch(tokenEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: params
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Manual token exchange failed:', errorData);
-                    throw new Error(`Token exchange failed: ${errorData.error}`);
-                }
-
-                const tokenData = await response.json();
-                console.log('Manual token exchange successful:', Object.keys(tokenData));
-
-                // Parse ID token if present
-                let userinfo = {};
-                if (tokenData.id_token) {
-                    const payload = JSON.parse(
-                        Buffer.from(tokenData.id_token.split('.')[1], 'base64').toString()
-                    );
-                    userinfo = payload;
-                    console.log('ID token payload:', Object.keys(payload));
-                }
-
-                // Create user session
-                req.session.user = {
-                    id: userinfo.sub,
-                    name: userinfo.name || `${userinfo.given_name || ''} ${userinfo.family_name || ''}`.trim() || userinfo.sub,
-                    email: userinfo.email,
-                    groups: userinfo.groups || [],
-                    picture: userinfo.picture
-                };
-
-                // Store token information
-                req.session.tokenSet = {
-                    access_token: tokenData.access_token,
-                    id_token: tokenData.id_token,
-                    refresh_token: tokenData.refresh_token,
-                };
-
-                console.log('User session created manually:', req.session.user);
-
-                // Redirect to the dashboard
-                res.redirect('/dashboard');
-            } catch (manualError) {
-                console.error('Manual token exchange also failed:', manualError);
-                res.status(500).send(`Authentication failed: ${error.message}. Manual attempt also failed: ${manualError.message}`);
-            }
+            logger.error('Token exchange error:', error);
+            res.status(500).send(`Authentication failed: ${error.message}`);
         }
     } catch (error) {
-        console.error('Callback error:', error);
+        logger.error('Callback error:', error);
         res.status(500).send(`Authentication failed: ${error.message}`);
     }
 });
@@ -141,52 +61,71 @@ router.get('/callback', async (req, res) => {
 // Logout route
 router.get('/logout', async (req, res) => {
     try {
-        console.log('Logout route accessed');
+        logger.info('Logout route accessed', { userId: req.session.user?.id });
         const { logoutUrl, success } = await oidcService.logout(req);
 
         if (logoutUrl) {
-            console.log('Redirecting to logout URL:', logoutUrl);
+            logger.debug('Redirecting to logout URL');
             res.redirect(logoutUrl);
         } else if (success) {
-            console.log('Logout successful, redirecting to home');
+            logger.debug('Logout successful, redirecting to home');
             res.redirect('/');
         } else {
             throw new Error('Logout failed');
         }
     } catch (error) {
-        console.error('Logout error:', error);
+        logger.error('Logout error:', error);
         res.status(500).json({ error: 'Logout failed', message: error.message });
     }
 });
 
 // Get current user
 router.get('/user', (req, res) => {
-    console.log('User route accessed, session:', req.session.user ? 'exists' : 'does not exist');
+    const hasSession = !!req.session.user;
+    logger.debug('User route accessed', {
+        hasSession,
+        userId: req.session.user?.id
+    });
 
-    if (!req.session.user) {
+    if (!hasSession) {
+        logger.debug('No user session found, returning 401');
         return res.status(401).json({ error: 'Unauthorized' });
     }
+
     res.json(req.session.user);
 });
 
 // Check auth status - for client-side auth checks
 router.get('/status', (req, res) => {
-    console.log('Status route accessed, session:', req.session.user ? 'exists' : 'does not exist');
+    const hasSession = !!req.session.user;
+    logger.debug('Status route accessed', { hasSession });
 
     let oidcInitialized = false;
     try {
         oidcService.getConfig();
         oidcInitialized = true;
     } catch (error) {
-        console.log('OIDC not initialized yet');
+        logger.debug('OIDC not initialized yet');
     }
 
     res.json({
-        authenticated: !!req.session.user,
+        authenticated: hasSession,
         user: req.session.user || null,
         oidcInitialized
     });
 });
 
+// Add a login-url endpoint for the client to get the login URL without redirecting
+router.get('/login-url', async (req, res) => {
+    try {
+        logger.info('Login URL requested');
+        const authUrl = await oidcService.generateAuthUrl(req);
+        logger.debug('Generated login URL successfully');
+        res.json({ url: authUrl });
+    } catch (error) {
+        logger.error('Error generating login URL:', error);
+        res.status(500).json({ error: 'Failed to generate login URL', message: error.message });
+    }
+});
 
 module.exports = router;

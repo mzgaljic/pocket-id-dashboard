@@ -1,5 +1,6 @@
 // server/services/pocketIdService.js
 const axios = require('axios');
+const logger = require('../utils/logger');
 
 // Base URL for the Pocket-ID API
 const API_BASE_URL = process.env.POCKET_ID_API_URL;
@@ -48,7 +49,7 @@ async function listOIDCClients(options = {}) {
     try {
         // Check cache first
         if (isCacheValid(cache.clients)) {
-            console.log('Using cached clients list');
+            logger.debug('Using cached clients list');
             return cache.clients.data;
         }
 
@@ -63,7 +64,7 @@ async function listOIDCClients(options = {}) {
             params.search = options.search;
         }
 
-        console.log('Fetching fresh clients list from API');
+        logger.info('Fetching fresh clients list from API');
         const response = await apiClient.get('/oidc/clients', { params });
 
         // Update cache
@@ -72,9 +73,10 @@ async function listOIDCClients(options = {}) {
             timestamp: Date.now()
         };
 
+        logger.debug(`Retrieved ${response.data.data.length} clients from API`);
         return response.data;
     } catch (error) {
-        console.error('Error fetching OIDC clients:', error.message);
+        logger.error('Error fetching OIDC clients:', error);
         throw new Error(`Failed to fetch OIDC clients: ${error.message}`);
     }
 }
@@ -86,10 +88,13 @@ async function listOIDCClients(options = {}) {
  */
 async function getOIDCClient(clientId) {
     try {
+        // Use a lower log level (verbose) for these frequent operations
+        logger.verbose(`Fetching OIDC client details: ${clientId}`);
+
         const response = await apiClient.get(`/oidc/clients/${clientId}`);
         return response.data;
     } catch (error) {
-        console.error(`Error fetching OIDC client ${clientId}:`, error.message);
+        logger.error(`Error fetching OIDC client ${clientId}:`, error);
         throw new Error(`Failed to fetch OIDC client ${clientId}: ${error.message}`);
     }
 }
@@ -101,12 +106,13 @@ async function getOIDCClient(clientId) {
  */
 async function getOIDCClientLogo(clientId) {
     try {
+        logger.debug('Fetching logo for OIDC client', { clientId });
         const response = await apiClient.get(`/oidc/clients/${clientId}/logo`, {
             responseType: 'arraybuffer'
         });
         return response.data;
     } catch (error) {
-        console.error(`Error fetching logo for OIDC client ${clientId}:`, error.message);
+        logger.error(`Error fetching logo for OIDC client ${clientId}:`, error);
         throw new Error(`Failed to fetch logo for OIDC client ${clientId}: ${error.message}`);
     }
 }
@@ -119,11 +125,10 @@ async function getOIDCClientLogo(clientId) {
 function extractBaseUrl(url) {
     try {
         if (!url) return '#';
-
         const parsedUrl = new URL(url);
         return `${parsedUrl.protocol}//${parsedUrl.host}`;
     } catch (error) {
-        console.error('Error parsing URL:', error);
+        logger.error('Error parsing URL:', error, { url });
         return '#';
     }
 }
@@ -135,11 +140,12 @@ function extractBaseUrl(url) {
  */
 async function getUserGroups(userId) {
     try {
-        console.log(`Fetching groups for user ${userId} from API`);
+        logger.info('Fetching groups for user', { userId });
         const response = await apiClient.get(`/users/${userId}/groups`);
+        logger.debug(`Retrieved ${response.data.length} groups for user`, { userId });
         return response.data;
     } catch (error) {
-        console.error(`Error fetching groups for user ${userId}:`, error.message);
+        logger.error(`Error fetching groups for user ${userId}:`, error);
         throw new Error(`Failed to fetch groups for user ${userId}: ${error.message}`);
     }
 }
@@ -152,14 +158,18 @@ async function getUserGroups(userId) {
 async function getAccessibleOIDCClients(userGroups) {
     try {
         // Get all clients
+        logger.info('Fetching clients for access check');
         const { data: clients } = await listOIDCClients();
 
         // Array to store accessible clients with details
         const accessibleClients = [];
 
+        logger.debug(`Processing ${clients.length} clients for access check`);
+
         // For each client, get details and check if user has access
         for (const client of clients) {
             try {
+                // Removed verbose logging for each client check
                 const clientDetails = await getOIDCClient(client.id);
 
                 // Extract group names from allowedUserGroups
@@ -186,14 +196,26 @@ async function getAccessibleOIDCClients(userGroups) {
                     });
                 }
             } catch (error) {
-                console.error(`Error processing client ${client.id}:`, error.message);
+                logger.error(`Error processing client ${client.id}:`, error);
                 // Continue with next client
             }
         }
 
+        // Log a summary of accessible apps instead of individual checks
+        logger.info(`Found accessible clients ${JSON.stringify({ count: accessibleClients.length })}`);
+
+        // Only log the detailed list at debug level
+        logger.debug('Accessible apps', {
+            apps: accessibleClients.map(app => ({
+                id: app.id,
+                name: app.name,
+                hasRedirectUri: app.redirectUri !== '#'
+            }))
+        });
+
         return accessibleClients;
     } catch (error) {
-        console.error('Error getting accessible OIDC clients:', error.message);
+        logger.error('Error getting accessible OIDC clients:', error);
         throw new Error(`Failed to get accessible OIDC clients: ${error.message}`);
     }
 }
@@ -206,10 +228,14 @@ async function getAccessibleOIDCClients(userGroups) {
 async function getAllOIDCClientsWithAccessInfo(userGroups) {
     try {
         // Get all clients
+        logger.info('Fetching all clients with access information');
         const { data: clients } = await listOIDCClients();
 
         // Array to store all clients with access information
         const allClients = [];
+        let accessibleCount = 0; // Changed from const to let
+
+        logger.debug(`Processing ${clients.length} clients for access information`);
 
         // For each client, get details and check if user has access
         for (const client of clients) {
@@ -221,6 +247,7 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
 
                 // Check if user is in any of the allowed groups
                 const hasAccess = allowedGroups.some(group => userGroups.includes(group));
+                if (hasAccess) accessibleCount++;
 
                 // Extract base URL from the first callback URL
                 const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
@@ -238,14 +265,29 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
                     hasAccess
                 });
             } catch (error) {
-                console.error(`Error processing client ${client.id}:`, error.message);
+                logger.error(`Error processing client ${client.id}:`, error);
                 // Continue with next client
             }
         }
 
+        // Log a summary instead of individual app processing
+        logger.info(`Processed total clients ${JSON.stringify({
+            total: allClients.length,
+            accessible: accessibleCount
+        })}`);
+
+        // Only log the detailed list at debug level
+        logger.debug('All apps with access info', {
+            apps: allClients.map(app => ({
+                id: app.id,
+                name: app.name,
+                hasAccess: app.hasAccess
+            }))
+        });
+
         return allClients;
     } catch (error) {
-        console.error('Error getting all OIDC clients with access info:', error.message);
+        logger.error('Error getting all OIDC clients with access info:', error);
         throw new Error(`Failed to get all OIDC clients with access info: ${error.message}`);
     }
 }
@@ -256,7 +298,7 @@ function clearCache() {
         data: null,
         timestamp: null
     };
-    console.log('Cache cleared');
+    logger.info('Cache cleared');
 }
 
 module.exports = {
