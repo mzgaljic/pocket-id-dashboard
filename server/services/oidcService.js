@@ -215,10 +215,43 @@ async function logout(req) {
     return { success: true };
 }
 
+/**
+ * Refresh an access token using a refresh token
+ * @param {string} refreshToken - The refresh token
+ * @returns {Promise<Object>} - New token set
+ */
+async function refreshToken(refreshToken) {
+    if (!config) {
+        logger.error('Attempted to refresh token before OIDC client initialization');
+        throw new Error('OIDC client not initialized');
+    }
+
+    try {
+        logger.info('Refreshing access token');
+
+        // Use the refresh token to get a new access token
+        const tokenSet = await config.refreshToken(refreshToken);
+
+        logger.info('Token refresh successful');
+        logger.debug('Received token types', {
+            accessToken: tokenSet.access_token ? '[PRESENT]' : '[MISSING]',
+            idToken: tokenSet.id_token ? '[PRESENT]' : '[MISSING]',
+            refreshToken: tokenSet.refresh_token ? '[PRESENT]' : '[MISSING]',
+            expiresIn: tokenSet.expires_in
+        });
+
+        return { tokenSet };
+    } catch (error) {
+        logger.error('Token refresh error:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     initializeOIDCClient,
     getConfig,
     generateAuthUrl,
     handleCallback,
     logout,
+    refreshToken
 };

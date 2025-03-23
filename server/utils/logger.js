@@ -8,7 +8,6 @@ const logLevel = process.env.LOG_LEVEL || 'info';
 const sanitizeSecrets = winston.format((info) => {
     // Create a deep copy of the log info object
     const sanitized = { ...info };
-
     // List of keys that might contain sensitive information
     const sensitiveKeys = [
         'password', 'secret', 'token', 'key', 'auth', 'authorization', 'cookie',
@@ -16,8 +15,16 @@ const sanitizeSecrets = winston.format((info) => {
     ];
 
     // Function to recursively sanitize an object
-    const sanitizeObject = (obj) => {
+    const sanitizeObject = (obj, seenObjects = new WeakMap()) => {
         if (!obj || typeof obj !== 'object') return;
+
+        // Check for circular references
+        if (seenObjects.has(obj)) {
+            return;
+        }
+
+        // Add this object to our seen objects
+        seenObjects.set(obj, true);
 
         Object.keys(obj).forEach(key => {
             // Check if the key name contains any sensitive keywords
@@ -25,9 +32,9 @@ const sanitizeSecrets = winston.format((info) => {
                 if (obj[key]) {
                     obj[key] = '[REDACTED]';
                 }
-            } else if (typeof obj[key] === 'object') {
+            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
                 // Recursively sanitize nested objects
-                sanitizeObject(obj[key]);
+                sanitizeObject(obj[key], seenObjects);
             }
         });
     };
@@ -40,7 +47,7 @@ const sanitizeSecrets = winston.format((info) => {
 
     // Sanitize any additional metadata
     Object.keys(sanitized).forEach(key => {
-        if (key !== 'level' && key !== 'message' && typeof sanitized[key] === 'object') {
+        if (key !== 'level' && key !== 'message' && typeof sanitized[key] === 'object' && sanitized[key] !== null) {
             sanitized[key] = { ...sanitized[key] };
             sanitizeObject(sanitized[key]);
         }

@@ -42,6 +42,35 @@ Stores user requests for access to applications.
 3. When the application loads, it fetches all access requests for the current user
 4. The UI displays the status of each request
 
+## Session Storage
+The application uses the database to store session data, allowing for session persistence across server restarts.
+
+### Table: sessions
+Stores user session data.
+
+#### Columns
+| Column Name | Type      | Description                                   | Constraints |
+|-------------|-----------|-----------------------------------------------|-------------|
+| sid         | TEXT      | Session ID                                    | PK          |
+| sess        | JSON      | Session data (serialized)                     | NOT NULL    |
+| expired     | TIMESTAMP | When the session expires                      | NOT NULL    |
+
+#### Indexes
+- Primary key on `sid`
+- Index on `expired` for efficient cleanup of expired sessions
+
+## PostgreSQL Support
+To use PostgreSQL instead of SQLite, set the following environment variables:
+```
+DB_CLIENT=pg
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=pocket_id_dashboard
+DB_SSL=false
+```
+
 ## SQLite Optimizations
 
 The SQLite database is configured with the following optimizations for reliability:

@@ -108,6 +108,21 @@ router.get('/status', (req, res) => {
         logger.debug('OIDC not initialized yet');
     }
 
+    // If session exists but is invalid (no user), destroy it
+    if (req.session && !req.session.user) {
+        logger.debug('Status check found session without user, cleaning up');
+        req.session.regenerate((err) => {
+            if (err) logger.error('Error regenerating session:', err);
+            // Return status after cleanup
+            res.json({
+                authenticated: false,
+                user: null,
+                oidcInitialized
+            });
+        });
+        return;
+    }
+
     res.json({
         authenticated: hasSession,
         user: req.session.user || null,

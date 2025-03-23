@@ -12,8 +12,32 @@ if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Create a custom logger for Knex that respects our log levels
+const customKnexLogger = {
+    warn(message) {
+        logger.warn('Database warning:', message);
+    },
+    error(message) {
+        logger.error('Database error:', message);
+    },
+    deprecate(message) {
+        logger.warn('Database deprecation:', message);
+    },
+    debug(message) {
+        // Only log SQL queries at debug level or below
+        if (process.env.LOG_LEVEL === 'debug' ||
+            process.env.LOG_LEVEL === 'verbose' ||
+            process.env.LOG_LEVEL === 'silly') {
+            logger.debug('Database query:', message);
+        }
+    }
+};
+
 // Initialize database connection
-const db = knex(dbConfig);
+const db = knex({
+    ...dbConfig,
+    log: customKnexLogger
+});
 
 // Database initialization function
 async function initializeDatabase() {
@@ -30,6 +54,7 @@ async function initializeDatabase() {
         logger.info('Database connection successful');
 
         // Run migrations
+
         const hasRequestsTable = await db.schema.hasTable('access_requests');
 
         if (!hasRequestsTable) {
@@ -51,6 +76,19 @@ async function initializeDatabase() {
             logger.info('Created access_requests table');
         } else {
             logger.info('access_requests table already exists');
+        }
+
+        const hasSessionsTable = await db.schema.hasTable('sessions');
+        if (!hasSessionsTable) {
+            logger.info('Creating sessions table');
+            await db.schema.createTable('sessions', (table) => {
+                table.string('sid').primary();
+                table.json('sess').notNullable();
+                table.timestamp('expired').notNullable().index();
+            });
+            logger.info('Created sessions table');
+        } else {
+            logger.info('sessions table already exists');
         }
 
         return true;

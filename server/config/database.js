@@ -53,10 +53,30 @@ else if (dbConfig.client === 'sqlite3') {
         });
     };
     logger.info('Configured sqlite3 with WAL mode and pragmas');
+} else if (dbConfig.client === 'pg') {
+    dbConfig.connection = {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT, 10) || 5432,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME || 'pocket_id_dashboard',
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    };
+
+    logger.info('Configured PostgreSQL connection', {
+        host: dbConfig.connection.host,
+        port: dbConfig.connection.port,
+        database: dbConfig.connection.database,
+        ssl: !!dbConfig.connection.ssl
+    });
 }
 
-// Enable debug logging in development
-if (process.env.NODE_ENV === 'development') {
+// Disable debug mode by default
+dbConfig.debug = false;
+
+// Only enable debug mode in development AND when log level is debug or lower
+if (process.env.NODE_ENV === 'development' &&
+    ['debug', 'verbose', 'silly'].includes(process.env.LOG_LEVEL || 'info')) {
     dbConfig.debug = true;
 }
 

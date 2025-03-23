@@ -1,18 +1,28 @@
 // server/services/pocketIdService.js
 const axios = require('axios');
+const https = require('https');
 const logger = require('../utils/logger');
 
 // Base URL for the Pocket-ID API
 const API_BASE_URL = process.env.POCKET_ID_API_URL;
 const API_KEY = process.env.POCKET_ID_API_KEY;
 
-// Create an axios instance with default headers
+const httpsAgent = new https.Agent({
+    keepAlive: true,
+    maxSockets: 25,
+    timeout: 30000,
+    rejectUnauthorized: process.env.NODE_ENV === 'production' // Allow self-signed certs in dev
+});
+
+// Create an axios instance with default headers and improved connection handling
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
         'Accept': 'application/json',
         'X-API-KEY': API_KEY
-    }
+    },
+    httpsAgent,
+    timeout: 10000 // 10 second timeout
 });
 
 // Simple in-memory cache for OIDC clients list only
@@ -141,9 +151,35 @@ function extractBaseUrl(url) {
 async function getUserGroups(userId) {
     try {
         logger.info('Fetching groups for user', { userId });
-        const response = await apiClient.get(`/users/${userId}/groups`);
-        logger.debug(`Retrieved ${response.data.length} groups for user`, { userId });
-        return response.data;
+
+        try {
+            const response = await apiClient.get(`/users/${userId}/groups`);
+            logger.debug(`Retrieved ${response.data.length} groups for user`, { userId });
+            return response.data;
+        } catch (error) {
+            // If we get a connection error, reset the connection and retry once
+            if (error.message && (
+                error.message.includes('ECONNRESET') ||
+                error.message.includes('socket hang up') ||
+                error.message.includes('Cannot read properties of undefined')
+            )) {
+                logger.warn('Connection error detected, resetting connection and retrying', {
+                    userId,
+                    error: error.message
+                });
+
+                // Reset the connection
+                resetConnection();
+
+                // Retry the request
+                const retryResponse = await apiClient.get(`/users/${userId}/groups`);
+                logger.info(`Retry successful, retrieved ${retryResponse.data.length} groups for user`, { userId });
+                return retryResponse.data;
+            }
+
+            // If not a connection error or retry failed, throw the error
+            throw error;
+        }
     } catch (error) {
         logger.error(`Error fetching groups for user ${userId}:`, error);
         throw new Error(`Failed to fetch groups for user ${userId}: ${error.message}`);
@@ -292,7 +328,30 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
     }
 }
 
-// Add a function to clear the cache
+/**
+ * Reset the API client connection
+ * This can help resolve stale connection issues
+ */
+function resetConnection() {
+    logger.info('Resetting API client connection');
+
+    // Create a new HTTPS agent
+    const newHttpsAgent = new https.Agent({
+        keepAlive: true,
+        maxSockets: 25,
+        timeout: 30000,
+        rejectUnauthorized: process.env.NODE_ENV === 'production'
+    });
+
+    // Update the API client with the new agent
+    apiClient.defaults.httpsAgent = newHttpsAgent;
+
+    // Clear any cached data
+    clearCache();
+
+    logger.info('API client connection reset complete');
+}
+
 function clearCache() {
     cache.clients = {
         data: null,
@@ -308,5 +367,6 @@ module.exports = {
     getAccessibleOIDCClients,
     getAllOIDCClientsWithAccessInfo,
     getUserGroups,
-    clearCache
+    clearCache,
+    resetConnection
 };
