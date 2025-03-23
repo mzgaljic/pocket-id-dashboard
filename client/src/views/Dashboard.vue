@@ -1,24 +1,6 @@
 <!-- src/views/Dashboard.vue -->
 <template>
   <div>
-    <!-- Dashboard header -->
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h1 class="text-2xl font-bold">Your Applications</h1>
-        <p class="text-gray-500 dark:text-gray-400">Quick access to all your authorized applications</p>
-      </div>
-      <UButton
-        v-if="appsToRequest.length > 0"
-        icon="i-heroicons-plus"
-        :color="'gray'"
-        :variant="showAllApps ? 'soft' : 'solid'"
-        @click="showAllApps = !showAllApps"
-        class="cursor-pointer"
-      >
-      <ButtonTextTransition :text="showAllApps ? 'Hide Request Panel' : `Request More Access`" />
-      </UButton>
-    </div>
-
     <!-- Loading state -->
     <div v-if="loading" class="py-12">
       <USeparator class="my-4" />
@@ -96,10 +78,27 @@
       </UCard>
     </div>
 
-    <!-- Request access panel -->
-    <!-- In client/src/views/Dashboard.vue, update the Request Access panel -->
+    <!-- Floating action button for requesting access -->
+    <div
+      v-if="appsToRequest.length > 0 && !loading && !error"
+      class="fixed bottom-8 right-8 z-10"
+    >
+      <UButton
+        color="gray"
+        variant="solid"
+        @click="toggleRequestPanel"
+        class="request-access-btn shadow-xl hover:shadow-2xl transition-all duration-200"
+        size="xxl"
+      >
+        <template #leading>
+          <UIcon :name="showAllApps ? 'i-heroicons-x-mark' : 'i-heroicons-plus'" class="w-5 h-5" />
+        </template>
+        <ButtonTextTransition :text="showAllApps ? 'Hide Request Panel' : 'Request Access'" />
+      </UButton>
+    </div>
 
-    <UCard v-if="showAllApps" class="mt-8">
+    <!-- Request access panel -->
+    <UCard v-if="showAllApps" class="mt-8" ref="requestAccessPanel">
       <template #header>
         <div class="flex items-center justify-between">
           <div>
@@ -174,8 +173,9 @@
   </div>
 </template>
 
+
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick  } from 'vue';
 import { appService } from '../services/apps';
 import AppLogo from '../components/AppLogo.vue';
 import ButtonTextTransition from '../components/ButtonTextTransition.vue';
@@ -188,6 +188,7 @@ const showAllApps = ref(false);
 const requestedApps = ref([]);
 const requestingAccess = ref(false);
 const requestingAccessFor = ref(null);
+const requestAccessPanel = ref(null);
 const toast = useToast();
 const appsToRequest = computed(() => {
   return allApps.value.filter(app => !app.hasAccess);
@@ -225,6 +226,28 @@ function launchApp(app) {
       icon: 'i-heroicons-exclamation-circle',
       color: 'amber',
       timeout: 5000
+    });
+  }
+}
+
+function toggleRequestPanel() {
+  showAllApps.value = !showAllApps.value;
+
+  if (showAllApps.value) {
+    // Wait for the panel to render before scrolling
+    nextTick(() => {
+      // Allow a little more time for the DOM to update
+      setTimeout(() => {
+        if (requestAccessPanel.value && requestAccessPanel.value.$el) {
+          // Use scrollIntoView with smooth behavior
+          requestAccessPanel.value.$el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        } else {
+          console.error('Request access panel element not found');
+        }
+      }, 100);
     });
   }
 }

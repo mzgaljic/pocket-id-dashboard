@@ -74,6 +74,22 @@ div[role="menu"] [role="menuitem"]:hover {
   background-color: #374151 !important;
 }
 
+/* Request Access Button */
+.request-access-btn {
+  background-color: white !important; /* fix transparency bug */
+  border: 1px solid rgba(10, 3, 3, 0.3) !important; /* thin border for contrast */
+}
+.dark .request-access-btn {
+  background-color: #1f2937 !important; /* fix transparency bug */
+  border: 1px solid rgba(255, 255, 255, 0.3) !important; /* thin border for contrast */
+}
+.request-access-btn {
+  border-radius: 9999px !important; /* Fully rounded */
+  padding: 10px 20px !important; /* Larger padding */
+  font-size: 1.1rem !important; /* Larger font */
+  font-weight: 600 !important; /* Bolder text */
+}
+
 /* Fix toast transparency bug */
 li[role="alert"].group.overflow-hidden {
   /* Force a solid background in light mode */
