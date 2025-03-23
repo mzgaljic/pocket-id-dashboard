@@ -101,11 +101,6 @@ const userMenuItems = computed(() => [
       icon: 'i-heroicons-user-circle',
       onSelect: () => window.open(pocketIdUserAccountUrl.value, '_blank')
     },
-    {
-      label: 'Settings',
-      icon: 'i-heroicons-cog-6-tooth',
-      onSelect: () => router.push('/settings')
-    }
   ],
   [
     {
