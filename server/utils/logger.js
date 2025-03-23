@@ -1,8 +1,28 @@
 // server/utils/logger.js
+
 const winston = require('winston');
 
 // Get log level from environment variable, default to 'info'
 const logLevel = process.env.LOG_LEVEL || 'info';
+
+// Create a safe JSON stringifier that handles circular references
+const safeStringify = (obj) => {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+        // Handle special cases for common circular objects
+        if (key === 'req' || key === 'res' || key === 'request' || key === 'response') {
+            return '[HTTP Object]';
+        }
+
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+                return '[Circular]';
+            }
+            seen.add(value);
+        }
+        return value;
+    }, 2);
+};
 
 // Create a custom format that doesn't log sensitive data
 const sanitizeSecrets = winston.format((info) => {
@@ -26,7 +46,21 @@ const sanitizeSecrets = winston.format((info) => {
         // Add this object to our seen objects
         seenObjects.set(obj, true);
 
+        // Skip HTTP objects that often contain circular references
+        if (
+            obj.constructor &&
+            ['IncomingMessage', 'ServerResponse', 'ClientRequest', 'Socket'].includes(obj.constructor.name)
+        ) {
+            return;
+        }
+
         Object.keys(obj).forEach(key => {
+            // Skip HTTP-related properties that often contain circular references
+            if (['req', 'res', 'request', 'response', 'socket', 'client'].includes(key)) {
+                obj[key] = '[HTTP Object]';
+                return;
+            }
+
             // Check if the key name contains any sensitive keywords
             if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive.toLowerCase()))) {
                 if (obj[key]) {
@@ -70,9 +104,13 @@ const consoleFormat = winston.format.printf(info => {
 
     // If we have metadata, add it to the log message
     if (Object.keys(metadata).length > 0) {
-        // Convert metadata to a formatted string
-        const metadataStr = JSON.stringify(metadata, null, 2);
-        logMessage += ` ${metadataStr}`;
+        try {
+            // Use safe stringify to handle circular references
+            logMessage += ` ${safeStringify(metadata)}`;
+        } catch (error) {
+            // If stringification fails, add a simplified version
+            logMessage += ` [Error serializing metadata: ${error.message}]`;
+        }
     }
 
     // Add stack trace if present
