@@ -233,7 +233,7 @@ const logout = async () => {
             <template #footer>
               <UButton
                 block
-                color="primary"
+                color="gray"
                 size="lg"
                 icon="i-heroicons-arrow-right-circle"
                 @click="login"
