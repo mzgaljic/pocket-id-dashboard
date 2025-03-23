@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const emailService = require('./services/emailService');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const { auth } = require('./middleware/auth');
@@ -104,6 +105,19 @@ const checkOIDCInitialized = (req, res, next) => {
     }
     next();
 };
+
+// Initialize email service
+emailService.initializeEmailService()
+    .then((initialized) => {
+        if (initialized) {
+            logger.info('Email service initialized successfully');
+        } else {
+            logger.warn('Email service initialization skipped or failed');
+        }
+    })
+    .catch(error => {
+        logger.error('Failed to initialize email service:', error);
+    });
 
 app.use(checkOIDCInitialized);
 app.use('/api/apps', auth, appRoutes);

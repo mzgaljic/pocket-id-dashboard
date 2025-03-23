@@ -1,8 +1,9 @@
 // server/routes/apps.js
 const express = require('express');
 const router = express.Router();
-const pocketIdService = require('../services/pocketIdService');
 const path = require('path');
+const emailService = require('../services/emailService');
+const pocketIdService = require('../services/pocketIdService');
 const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
@@ -54,7 +55,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Request access to an app
+
 router.post('/request-access', async (req, res) => {
     try {
         const { appId } = req.body;
@@ -65,19 +66,57 @@ router.post('/request-access', async (req, res) => {
             return res.status(400).json({ error: 'Application ID is required' });
         }
 
-        // In a real implementation, you would send an email to admin or create a request in a database
+        // Get app details to include in the notification
+        let appName = 'Unknown Application';
+        try {
+            const appDetails = await pocketIdService.getOIDCClient(appId);
+            appName = appDetails.name || appName;
+        } catch (error) {
+            logger.warn(`Could not fetch app details for ${appId}`, { error: error.message });
+        }
+
+        // Log the request
         logger.info('User requested access to app', {
             userId: user.id,
             userEmail: user.email,
-            appId
+            appId,
+            appName
         });
 
-        // For now, just return success
+        // Create request details for email
+        const requestDetails = {
+            appId,
+            appName,
+            userId: user.id,
+            userEmail: user.email,
+            userName: user.name,
+            timestamp: new Date().toISOString()
+        };
+
+        // Send email notification asynchronously
+        emailService.sendAccessRequestNotification(requestDetails)
+            .then(success => {
+                if (success) {
+                    logger.info('Access request notification sent successfully', { appId, userId: user.id });
+                } else {
+                    logger.warn('Failed to send access request notification', { appId, userId: user.id });
+                }
+            })
+            .catch(error => {
+                logger.error('Error sending access request notification', {
+                    error: error.message,
+                    appId,
+                    userId: user.id
+                });
+            });
+
+        // Return success response immediately without waiting for email
         res.json({
             success: true,
             message: 'Access request submitted',
             requestDetails: {
                 appId,
+                appName,
                 userId: user.id,
                 userEmail: user.email,
                 timestamp: new Date().toISOString()
