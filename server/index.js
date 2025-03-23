@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const emailService = require('./services/emailService');
+const { initializeDatabase, closeDatabase } = require('./database');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const { auth } = require('./middleware/auth');
@@ -118,6 +119,28 @@ emailService.initializeEmailService()
     .catch(error => {
         logger.error('Failed to initialize email service:', error);
     });
+
+// Initialize database
+initializeDatabase()
+    .then(() => {
+        logger.info('Database initialized successfully');
+    })
+    .catch(error => {
+        logger.error('Failed to initialize database:', error);
+        // Continue running the server even if database initialization fails
+    });
+// Add a graceful shutdown handler
+process.on('SIGTERM', async () => {
+    logger.info('SIGTERM signal received, shutting down gracefully');
+    await closeDatabase();
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    logger.info('SIGINT signal received, shutting down gracefully');
+    await closeDatabase();
+    process.exit(0);
+});
 
 app.use(checkOIDCInitialized);
 app.use('/api/apps', auth, appRoutes);

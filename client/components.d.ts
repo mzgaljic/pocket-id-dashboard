@@ -8,9 +8,11 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AnimatedButton: typeof import('./src/components/AnimatedButton.vue')['default']
     AppCard: typeof import('./src/components/AppCard.vue')['default']
     AppCardSkeleton: typeof import('./src/components/AppCardSkeleton.vue')['default']
     AppLogo: typeof import('./src/components/AppLogo.vue')['default']
+    ButtonTextTransition: typeof import('./src/components/ButtonTextTransition.vue')['default']
     NotificationToast: typeof import('./src/components/NotificationToast.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

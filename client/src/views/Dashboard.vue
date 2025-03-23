@@ -8,11 +8,14 @@
         <p class="text-gray-500 dark:text-gray-400">Quick access to all your authorized applications</p>
       </div>
       <UButton
+        v-if="appsToRequest.length > 0"
         icon="i-heroicons-plus"
-        :color="showAllApps ? 'gray' : 'primary'"
+        :color="'gray'"
+        :variant="showAllApps ? 'soft' : 'solid'"
         @click="showAllApps = !showAllApps"
+        class="cursor-pointer"
       >
-        {{ showAllApps ? 'Hide Request Panel' : 'Request More Access' }}
+      <ButtonTextTransition :text="showAllApps ? 'Hide Request Panel' : `Request More Access`" />
       </UButton>
     </div>
 
@@ -44,9 +47,17 @@
         <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-600 w-16 h-16 mb-4" />
         <h3 class="text-xl font-semibold mb-2">No Applications Available</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-          You don't have access to any applications yet. Request access below.
+          You don't have access to any applications yet.
+          {{ appsToRequest.length > 0 ? 'Request access below to get started.' : 'No applications are available for request at this time.' }}
         </p>
-        <UButton color="primary" @click="showAllApps = true">Request Access</UButton>
+        <UButton
+          v-if="appsToRequest.length > 0"
+          color="primary"
+          @click="showAllApps = true"
+          class="cursor-pointer"
+        >
+          Request Access
+        </UButton>
       </div>
     </UCard>
 
@@ -86,6 +97,8 @@
     </div>
 
     <!-- Request access panel -->
+    <!-- In client/src/views/Dashboard.vue, update the Request Access panel -->
+
     <UCard v-if="showAllApps" class="mt-8">
       <template #header>
         <div class="flex items-center justify-between">
@@ -100,26 +113,24 @@
             variant="ghost"
             icon="i-heroicons-x-mark"
             @click="showAllApps = false"
+            class="cursor-pointer"
           />
         </div>
       </template>
-
       <!-- Loading state for all apps -->
       <div v-if="loading" class="py-8 text-center">
         <UIcon name="i-heroicons-arrow-path" class="text-gray-400 dark:text-gray-600 w-8 h-8 animate-spin mb-2 mx-auto" />
         <p class="text-gray-500 dark:text-gray-400">Loading applications...</p>
       </div>
-
       <!-- No apps to request -->
-      <div v-else-if="allApps.length === 0" class="py-8 text-center">
+      <div v-else-if="appsToRequest.length === 0" class="py-8 text-center">
         <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-600 w-8 h-8 mb-2 mx-auto" />
-        <p class="text-gray-500 dark:text-gray-400">No applications available to request.</p>
+        <p class="text-gray-500 dark:text-gray-400">You already have access to all available applications.</p>
       </div>
-
       <!-- Apps list -->
       <div v-else class="space-y-4 mt-2">
         <UCard
-          v-for="app in allApps"
+          v-for="app in appsToRequest"
           :key="app.id"
           :ui="{ body: { padding: 'p-4' } }"
           class="bg-gray-50 dark:bg-gray-800"
@@ -142,26 +153,19 @@
               <h4 class="font-medium">{{ app.name }}</h4>
               <p class="text-gray-500 dark:text-gray-400 text-sm">{{ app.description }}</p>
             </div>
-            <UBadge v-if="app.hasAccess" color="green" variant="subtle" class="ml-4">
-              <template #default>
-                <span class="flex items-center">
-                  <UIcon name="i-heroicons-check-circle" class="mr-1" />
-                  Access Granted
-                </span>
-              </template>
-            </UBadge>
             <UButton
-              v-else
               color="primary"
               variant="soft"
               size="sm"
               @click.stop="requestAccess(app.id)"
-              :disabled="requestedApps.includes(app.id) || requestingAccess"
+              :disabled="app.requested || requestingAccess"
               :loading="requestingAccessFor === app.id"
-              :icon="requestedApps.includes(app.id) ? 'i-heroicons-check' : 'i-heroicons-key'"
-              class="ml-4"
+              :icon="app.requested ? 'i-heroicons-check' : 'i-heroicons-key'"
+              class="ml-4 cursor-pointer"
             >
-              {{ requestedApps.includes(app.id) ? 'Requested' : 'Request Access' }}
+              <ButtonTextTransition
+                :text="app.requested ? 'Requested' : 'Request Access'"
+              />
             </UButton>
           </div>
         </UCard>
@@ -171,9 +175,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { appService } from '../services/apps';
 import AppLogo from '../components/AppLogo.vue';
+import ButtonTextTransition from '../components/ButtonTextTransition.vue';
 
 const loading = ref(true);
 const error = ref(null);
@@ -184,6 +189,9 @@ const requestedApps = ref([]);
 const requestingAccess = ref(false);
 const requestingAccessFor = ref(null);
 const toast = useToast();
+const appsToRequest = computed(() => {
+  return allApps.value.filter(app => !app.hasAccess);
+});
 
 onMounted(() => {
   loadApps();
@@ -226,8 +234,27 @@ async function requestAccess(appId) {
     requestingAccess.value = true;
     requestingAccessFor.value = appId;
 
-    await appService.requestAccess(appId);
-    requestedApps.value.push(appId);
+    // Get the updated request data from the service
+    const updatedRequest = await appService.requestAccess(appId);
+
+    // Add a slight delay to make the animation more noticeable
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Update the local state for allApps array
+    const appIndex = allApps.value.findIndex(app => app.id === appId);
+    if (appIndex !== -1) {
+      // Create a new object to ensure reactivity
+      allApps.value[appIndex] = {
+        ...allApps.value[appIndex],
+        requested: true,
+        requestStatus: 'pending'
+      };
+    }
+
+    // Add to requestedApps array if not already there
+    if (!requestedApps.value.includes(appId)) {
+      requestedApps.value.push(appId);
+    }
 
     toast.add({
       title: 'Access Requested',
@@ -238,7 +265,6 @@ async function requestAccess(appId) {
     });
   } catch (error) {
     console.error('Failed to request access', error);
-
     toast.add({
       title: 'Request Failed',
       description: 'There was an error submitting your request. Please try again.',

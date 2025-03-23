@@ -4,6 +4,7 @@ const router = express.Router();
 const path = require('path');
 const emailService = require('../services/emailService');
 const pocketIdService = require('../services/pocketIdService');
+const accessRequestRepository = require('../repositories/accessRequestRepository');
 const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
@@ -83,6 +84,16 @@ router.post('/request-access', async (req, res) => {
             appName
         });
 
+        // Save the request to the database
+        const requestData = {
+            userId: user.id,
+            appId,
+            appName,
+            notes: `Access requested by ${user.name} (${user.email})`
+        };
+
+        const savedRequest = await accessRequestRepository.createRequest(requestData);
+
         // Create request details for email
         const requestDetails = {
             appId,
@@ -110,17 +121,11 @@ router.post('/request-access', async (req, res) => {
                 });
             });
 
-        // Return success response immediately without waiting for email
+        // Return success response with the saved request
         res.json({
             success: true,
             message: 'Access request submitted',
-            requestDetails: {
-                appId,
-                appName,
-                userId: user.id,
-                userEmail: user.email,
-                timestamp: new Date().toISOString()
-            }
+            request: savedRequest
         });
     } catch (error) {
         logger.error('Error requesting access:', error);
@@ -163,5 +168,22 @@ router.post('/clear-cache', auth, async (req, res) => {
         res.status(500).json({ error: 'Failed to clear cache', message: error.message });
     }
 });
+
+
+// Get user's access requests
+router.get('/requests', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        logger.info('Fetching access requests for user', { userId });
+
+        const requests = await accessRequestRepository.getRequestsByUser(userId);
+
+        res.json(requests);
+    } catch (error) {
+        logger.error('Error fetching access requests:', error);
+        res.status(500).json({ error: 'Failed to fetch access requests', message: error.message });
+    }
+});
+
 
 module.exports = router;

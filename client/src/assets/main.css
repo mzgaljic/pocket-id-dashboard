@@ -88,6 +88,40 @@ li[role="alert"].group.overflow-hidden {
   color: white !important;
 }
 
+
+/* Ensure all buttons have the correct cursor */
+button,
+.u-button,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+/* Ensure disabled buttons show the correct cursor */
+button:disabled,
+.u-button:disabled,
+[role="button"][disabled],
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+/* Make sure the entire card is clickable in the apps grid */
+.app-card {
+  cursor: pointer;
+}
+
+/* Simple fade transition for button text */
+.button-text-fade-enter-active,
+.button-text-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.button-text-fade-enter-from,
+.button-text-fade-leave-to {
+  opacity: 0;
+}
+
+
+
 /* Custom responsive styles */
 @media (max-width: 768px) {
   .app-grid {

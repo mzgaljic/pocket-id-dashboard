@@ -1,2 +1,9 @@
 .idea
 node_modules
+.env
+
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+# But keep the directory
+!/data/.gitkeep
