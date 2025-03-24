@@ -4,7 +4,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authService } from './services/auth';
 import { configService } from './services/config';
-import AppLogoImage from './components/AppLogoImage.vue';
+import { setFavicon } from './utils/favicon';
+
 
 
 const user = ref(null);
@@ -53,11 +54,16 @@ onMounted(async () => {
     appTitle.value = await configService.getAppTitle();
     document.title = appTitle.value;
     ssoProviderName.value = await configService.getSsoProviderName();
+    pocketIdUserAccountUrl.value = await configService.getPocketIdUsersAccountUrl();
+
     const dynamicLogoUrl = await configService.getLogoUrl(isDark.value);
     if (dynamicLogoUrl) {
       logoUrl.value = dynamicLogoUrl;
     }
-    pocketIdUserAccountUrl.value = await configService.getPocketIdUsersAccountUrl();
+    const faviconUrl = await configService.getFaviconUrl();
+    if (faviconUrl) {
+      setFavicon(faviconUrl);
+    }
   } catch (error) {
     console.error('Failed to load app configuration:', error);
   }

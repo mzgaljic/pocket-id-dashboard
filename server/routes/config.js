@@ -15,6 +15,7 @@ router.get('/', (req, res) => {
         ssoProviderName: process.env.APP_SSO_PROVIDER_NAME || 'Pocket ID',
         logoLight: pocketIdBaseUrl ? `${pocketIdBaseUrl}/api/application-configuration/logo?light=true` : null,
         logoDark: pocketIdBaseUrl ? `${pocketIdBaseUrl}/api/application-configuration/logo?light=false` : null,
+        favicon: pocketIdBaseUrl ? `${pocketIdBaseUrl}/api/application-configuration/favicon` : null,
     });
 });
 

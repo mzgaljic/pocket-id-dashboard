@@ -18,7 +18,11 @@ export const configService = {
     } catch (error) {
       console.error('Failed to load configuration:', error);
       return {
-        pocketIdBaseUrl: ''
+        pocketIdBaseUrl: '',
+        appTitle: 'Pocket ID Dashboard',
+        logoLight: null,
+        logoDark: null,
+        favicon: null
       };
     }
   },
@@ -51,5 +55,11 @@ export const configService = {
   async getLogoUrl(isDark = false) {
     const config = await this.getConfig();
     return isDark ? config.logoDark : config.logoLight;
+  },
+
+  // Get the favicon URL
+  async getFaviconUrl() {
+    const config = await this.getConfig();
+    return config.favicon;
   }
 };
