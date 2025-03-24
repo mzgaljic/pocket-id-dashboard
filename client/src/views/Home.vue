@@ -4,11 +4,13 @@
     <UCard class="max-w-md w-full">
       <template #header>
         <div class="flex flex-col items-center py-4">
-          <UAvatar
-            src="/logo.svg"
-            alt="Pocket-ID"
+          <AppLogoImage
+            :src="logoUrl"
+            :alt="appTitle"
             size="xl"
+            :isDark="isDark"
             class="mb-4"
+            @error="handleLogoError"
           />
           <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
         </div>
@@ -46,26 +48,42 @@
 import { ref, onMounted } from 'vue';
 import { authService } from '../services/auth';
 import {configService} from "@/services/config.js";
+import AppLogoImage from '../components/AppLogoImage.vue';
+
 
 const isLoading = ref(false);
 const error = ref(null);
 const oidcInitialized = ref(true);
 const appTitle = ref('');
 const ssoProviderName = ref('');
+const isDark = ref(false);
+const logoUrl = ref('');
+
+function handleLogoError() {
+  console.log('Error loading app logo.');
+}
 
 onMounted(async () => {
+  // Check for dark mode
+  isDark.value = document.documentElement.classList.contains('dark');
+
   try {
     const status = await authService.checkAuthStatus();
     oidcInitialized.value = status.oidcInitialized;
   } catch (err) {
     error.value = 'Unable to connect to the authentication service.';
   }
+
   try {
     appTitle.value = await configService.getAppTitle();
     document.title = appTitle.value;
-    ssoProviderName.value = await configService.getSsoProviderName();
-  } catch (error) {
-    console.error('Failed to load app configuration:', error);
+
+    const dynamicLogoUrl = await configService.getLogoUrl(isDark.value);
+    if (dynamicLogoUrl) {
+      logoUrl.value = dynamicLogoUrl;
+    }
+  } catch (err) {
+    console.error('Failed to load app configuration:', err);
   }
 });
 
@@ -73,7 +91,7 @@ const login = async () => {
   try {
     isLoading.value = true;
     error.value = null;
-    authService.login();
+    await authService.login();
   } catch (err) {
     error.value = 'Failed to initiate login. Please try again.';
     isLoading.value = false;

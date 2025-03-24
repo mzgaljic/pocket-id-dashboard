@@ -4,6 +4,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authService } from './services/auth';
 import { configService } from './services/config';
+import AppLogoImage from './components/AppLogoImage.vue';
+
 
 const user = ref(null);
 const router = useRouter();
@@ -16,6 +18,11 @@ const authCheckFailed = ref(false);
 const pocketIdUserAccountUrl = ref('#');
 const appTitle = ref('');
 const ssoProviderName = ref('');
+const logoUrl = ref('');
+
+function handleLogoError() {
+  console.log('Error loading app logo.');
+}
 
 // Initialize dark mode from localStorage or system preference
 onMounted(async () => {
@@ -46,6 +53,10 @@ onMounted(async () => {
     appTitle.value = await configService.getAppTitle();
     document.title = appTitle.value;
     ssoProviderName.value = await configService.getSsoProviderName();
+    const dynamicLogoUrl = await configService.getLogoUrl(isDark.value);
+    if (dynamicLogoUrl) {
+      logoUrl.value = dynamicLogoUrl;
+    }
     pocketIdUserAccountUrl.value = await configService.getPocketIdUsersAccountUrl();
   } catch (error) {
     console.error('Failed to load app configuration:', error);
@@ -109,8 +120,16 @@ function retryAuthCheck() {
 }
 
 // Watch for changes to isDark
-watch(isDark, () => {
+watch(isDark, async (newValue) => {
   applyTheme();
+  try {
+    const dynamicLogoUrl = await configService.getLogoUrl(newValue);
+    if (dynamicLogoUrl) {
+      logoUrl.value = dynamicLogoUrl;
+    }
+  } catch (error) {
+    console.error('Failed to update logo:', error);
+  }
 });
 
 // Apply theme based on isDark value
@@ -185,11 +204,13 @@ const logout = async () => {
     <UContainer class="py-8">
       <header v-if="user || loading" class="flex justify-between items-center mb-8 pb-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center">
-          <UAvatar
-            src="/logo.svg"
-            alt="Pocket-ID"
+          <AppLogoImage
+            :src="logoUrl"
+            :alt="appTitle"
             size="lg"
+            :isDark="isDark"
             class="mr-4"
+            @error="handleLogoError"
           />
           <h1 class="text-xl font-bold">{{ appTitle }}</h1>
         </div>
@@ -258,11 +279,13 @@ const logout = async () => {
           <UCard class="max-w-md w-full">
             <template #header>
               <div class="flex flex-col items-center py-4">
-                <UAvatar
-                  src="/logo.svg"
-                  alt="Pocket-ID"
+                <AppLogoImage
+                  :src="logoUrl"
+                  :alt="appTitle"
                   size="xl"
+                  :isDark="isDark"
                   class="mb-4"
+                  @error="handleLogoError"
                 />
                 <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
               </div>
