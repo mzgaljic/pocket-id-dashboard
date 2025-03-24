@@ -1,40 +1,30 @@
 // server/services/pocketIdService.js
-const axios = require('axios');
 const https = require('https');
+const {URL} = require('url');
 const logger = require('../utils/logger');
 
 // Base URL for the Pocket-ID API
 const POCKET_ID_BASE_URL = process.env.POCKET_ID_BASE_URL;
 const API_KEY = process.env.POCKET_ID_API_KEY;
 
-const httpsAgent = new https.Agent({
-    keepAlive: true,
-    maxSockets: 25,
-    timeout: 30000,
-    rejectUnauthorized: process.env.NODE_ENV === 'production' // Allow self-signed certs in dev
-});
-
-// Create an axios instance with default headers and improved connection handling
-const apiClient = axios.create({
-    baseURL: `${POCKET_ID_BASE_URL}/api`,
-    headers: {
-        'Accept': 'application/json',
-        'X-API-KEY': API_KEY
-    },
-    httpsAgent,
-    timeout: 5000 // 5 seconds
-});
-
-// Simple in-memory cache for OIDC clients list only
 const cache = {
     clients: {
         data: null,
         timestamp: null
-    }
+    },
+    // Add caches for user groups and accessible apps
+    userGroups: {}, // Will be keyed by userId
+    accessibleApps: {} // Will be keyed by a hash of the userGroups array
 };
 
-// Cache expiration time (in milliseconds)
-const CACHE_EXPIRY = 3600000; // 1 hour
+function hashArray(arr) {
+    return arr.sort().join('|');
+}
+
+// cache TTLs
+const CACHE_EXPIRY = 3600000; // 1 hour for clients
+const USER_GROUPS_CACHE_EXPIRY = 5000; // 5 seconds for user groups
+const ACCESSIBLE_APPS_CACHE_EXPIRY = 10000; // 10 seconds for accessible apps
 
 /**
  * Check if cache is valid
@@ -48,6 +38,89 @@ function isCacheValid(cacheEntry) {
         cacheEntry.timestamp &&
         Date.now() - cacheEntry.timestamp < CACHE_EXPIRY
     );
+}
+
+/**
+ * Make an API request to the Pocket-ID API
+ * @param {string} path - API path (without base URL)
+ * @param {Object} options - Request options
+ * @returns {Promise<any>} - Response data
+ */
+function makeApiRequest(path, options = {}) {
+    return new Promise((resolve, reject) => {
+        // Build the full URL
+        const url = new URL(`${POCKET_ID_BASE_URL}/api${path}`);
+
+        // Add query parameters if provided
+        if (options.params) {
+            Object.entries(options.params).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    url.searchParams.append(key, value);
+                }
+            });
+        }
+
+        const requestOptions = {
+            hostname: url.hostname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: `${url.pathname}${url.search}`,
+            method: options.method || 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-API-KEY': API_KEY,
+                ...(options.headers || {})
+            },
+            // Disable certificate validation in dev only if needed
+            rejectUnauthorized: process.env.NODE_ENV === 'production'
+        };
+
+        logger.debug(`Making ${requestOptions.method} request to ${url.pathname}${url.search}`);
+
+        const req = https.request(requestOptions, (res) => {
+            let data = Buffer.from([]);
+
+            res.on('data', (chunk) => {
+                data = Buffer.concat([data, chunk]);
+            });
+
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                        // Check if we expect JSON response
+                        if (res.headers['content-type']?.includes('application/json')) {
+                            resolve(JSON.parse(data.toString()));
+                        } else {
+                            // For binary data like images
+                            resolve(data);
+                        }
+                    } catch (error) {
+                        logger.error('Error parsing API response:', error);
+                        reject(new Error(`Failed to parse API response: ${error.message}`));
+                    }
+                } else {
+                    logger.error(`API request failed with status ${res.statusCode}`, {
+                        path,
+                        statusCode: res.statusCode,
+                        statusMessage: res.statusMessage
+                    });
+                    reject(new Error(`Request failed with status code ${res.statusCode}`));
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            logger.error(`API request error for ${path}:`, error);
+            reject(error);
+        });
+
+        // Add timeout
+        req.setTimeout(5000, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+
+        req.end();
+    });
 }
 
 /**
@@ -75,16 +148,16 @@ async function listOIDCClients(options = {}) {
         }
 
         logger.info('Fetching fresh clients list from API');
-        const response = await apiClient.get('/oidc/clients', { params });
+        const response = await makeApiRequest('/oidc/clients', { params });
 
         // Update cache
         cache.clients = {
-            data: response.data,
+            data: response,
             timestamp: Date.now()
         };
 
-        logger.debug(`Retrieved ${response.data.data.length} clients from API`);
-        return response.data;
+        logger.debug(`Retrieved ${response.data.length} clients from API`);
+        return response;
     } catch (error) {
         logger.error('Error fetching OIDC clients:', error);
         throw new Error(`Failed to fetch OIDC clients: ${error.message}`);
@@ -100,9 +173,8 @@ async function getOIDCClient(clientId) {
     try {
         // Use a lower log level (verbose) for these frequent operations
         logger.verbose(`Fetching OIDC client details: ${clientId}`);
-
-        const response = await apiClient.get(`/oidc/clients/${clientId}`);
-        return response.data;
+        const response = await makeApiRequest(`/oidc/clients/${clientId}`);
+        return response;
     } catch (error) {
         logger.error(`Error fetching OIDC client ${clientId}:`, error);
         throw new Error(`Failed to fetch OIDC client ${clientId}: ${error.message}`);
@@ -116,11 +188,9 @@ async function getOIDCClient(clientId) {
  */
 async function getOIDCClientLogo(clientId) {
     try {
-        logger.debug('Fetching logo for OIDC client', { clientId });
-        const response = await apiClient.get(`/oidc/clients/${clientId}/logo`, {
-            responseType: 'arraybuffer'
-        });
-        return response.data;
+        logger.debug('Fetching logo for OIDC client', {clientId});
+        // For binary data, we'll get a Buffer back
+        return await makeApiRequest(`/oidc/clients/${clientId}/logo`);
     } catch (error) {
         logger.error(`Error fetching logo for OIDC client ${clientId}:`, error);
         throw new Error(`Failed to fetch logo for OIDC client ${clientId}: ${error.message}`);
@@ -138,7 +208,7 @@ function extractBaseUrl(url) {
         const parsedUrl = new URL(url);
         return `${parsedUrl.protocol}//${parsedUrl.host}`;
     } catch (error) {
-        logger.error('Error parsing URL:', error, { url });
+        logger.error('Error parsing URL:', error, {url});
         return '#';
     }
 }
@@ -150,37 +220,31 @@ function extractBaseUrl(url) {
  */
 async function getUserGroups(userId) {
     try {
-        logger.info('Fetching groups for user', { userId });
-
-        try {
-            const response = await apiClient.get(`/users/${userId}/groups`);
-            logger.debug(`Retrieved ${response.data.length} groups for user`, { userId });
-            return response.data;
-        } catch (error) {
-            // If we get a connection error, reset the connection and retry once
-            if (error.message && (
-                error.message.includes('ECONNRESET') ||
-                error.message.includes('socket hang up') ||
-                error.message.includes('Cannot read properties of undefined')
-            )) {
-                logger.warn('Connection error detected, resetting connection and retrying', {
-                    userId,
-                    error: error.message
-                });
-
-                // Reset the connection
-                resetConnection();
-
-                // Retry the request
-                const retryResponse = await apiClient.get(`/users/${userId}/groups`);
-                logger.info(`Retry successful, retrieved ${retryResponse.data.length} groups for user`, { userId });
-                return retryResponse.data;
-            }
-
-            // If not a connection error or retry failed, throw the error
-            throw error;
+        // Check cache first
+        if (cache.userGroups[userId] &&
+            cache.userGroups[userId].timestamp > Date.now() - USER_GROUPS_CACHE_EXPIRY) {
+            logger.debug(`Using cached groups for user ${userId}`);
+            return cache.userGroups[userId].data;
         }
+
+        logger.info('Fetching groups for user', { userId });
+        const response = await makeApiRequest(`/users/${userId}/groups`);
+        logger.debug(`Retrieved ${response.length} groups for user`, { userId });
+
+        // Cache the result
+        cache.userGroups[userId] = {
+            data: response,
+            timestamp: Date.now()
+        };
+
+        return response;
     } catch (error) {
+        // If we have cached data and hit an error (like 429), use the cached data
+        if (cache.userGroups[userId]) {
+            logger.warn(`Error fetching groups for user ${userId}, using cached data:`, error);
+            return cache.userGroups[userId].data;
+        }
+
         logger.error(`Error fetching groups for user ${userId}:`, error);
         throw new Error(`Failed to fetch groups for user ${userId}: ${error.message}`);
     }
@@ -193,19 +257,27 @@ async function getUserGroups(userId) {
  */
 async function getAccessibleOIDCClients(userGroups) {
     try {
+        // Generate a cache key based on the user's groups
+        const cacheKey = hashArray(userGroups);
+
+        // Check cache first
+        if (cache.accessibleApps[cacheKey] &&
+            cache.accessibleApps[cacheKey].timestamp > Date.now() - ACCESSIBLE_APPS_CACHE_EXPIRY) {
+            logger.debug('Using cached accessible apps');
+            return cache.accessibleApps[cacheKey].data;
+        }
+
         // Get all clients
         logger.info('Fetching clients for access check');
         const { data: clients } = await listOIDCClients();
 
         // Array to store accessible clients with details
         const accessibleClients = [];
-
         logger.debug(`Processing ${clients.length} clients for access check`);
 
         // For each client, get details and check if user has access
         for (const client of clients) {
             try {
-                // Removed verbose logging for each client check
                 const clientDetails = await getOIDCClient(client.id);
 
                 // Extract group names from allowedUserGroups
@@ -236,19 +308,13 @@ async function getAccessibleOIDCClients(userGroups) {
                 // Continue with next client
             }
         }
+        // Cache the results
+        cache.accessibleApps[cacheKey] = {
+            data: accessibleClients,
+            timestamp: Date.now()
+        };
 
-        // Log a summary of accessible apps instead of individual checks
         logger.info(`Found accessible clients ${JSON.stringify({ count: accessibleClients.length })}`);
-
-        // Only log the detailed list at debug level
-        logger.debug('Accessible apps', {
-            apps: accessibleClients.map(app => ({
-                id: app.id,
-                name: app.name,
-                hasRedirectUri: app.redirectUri !== '#'
-            }))
-        });
-
         return accessibleClients;
     } catch (error) {
         logger.error('Error getting accessible OIDC clients:', error);
@@ -262,14 +328,25 @@ async function getAccessibleOIDCClients(userGroups) {
  * @returns {Promise<Array>} - Array of all clients with access information
  */
 async function getAllOIDCClientsWithAccessInfo(userGroups) {
+    // Similar caching logic as getAccessibleOIDCClients
     try {
+        // Generate a cache key based on the user's groups
+        const cacheKey = `all_${hashArray(userGroups)}`;
+
+        // Check cache first
+        if (cache.accessibleApps[cacheKey] &&
+            cache.accessibleApps[cacheKey].timestamp > Date.now() - ACCESSIBLE_APPS_CACHE_EXPIRY) {
+            logger.debug('Using cached all apps with access info');
+            return cache.accessibleApps[cacheKey].data;
+        }
+
         // Get all clients
         logger.info('Fetching all clients with access information');
         const { data: clients } = await listOIDCClients();
 
         // Array to store all clients with access information
         const allClients = [];
-        let accessibleCount = 0; // Changed from const to let
+        let accessibleCount = 0;
 
         logger.debug(`Processing ${clients.length} clients for access information`);
 
@@ -306,20 +383,16 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
             }
         }
 
-        // Log a summary instead of individual app processing
+        // Cache the results
+        cache.accessibleApps[cacheKey] = {
+            data: allClients,
+            timestamp: Date.now()
+        };
+
         logger.info(`Processed total clients ${JSON.stringify({
             total: allClients.length,
             accessible: accessibleCount
         })}`);
-
-        // Only log the detailed list at debug level
-        logger.debug('All apps with access info', {
-            apps: allClients.map(app => ({
-                id: app.id,
-                name: app.name,
-                hasAccess: app.hasAccess
-            }))
-        });
 
         return allClients;
     } catch (error) {
@@ -329,34 +402,15 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
 }
 
 /**
- * Reset the API client connection
- * This can help resolve stale connection issues
+ * Clear the cache
  */
-function resetConnection() {
-    logger.info('Resetting API client connection');
-
-    // Create a new HTTPS agent
-    const newHttpsAgent = new https.Agent({
-        keepAlive: true,
-        maxSockets: 25,
-        timeout: 30000,
-        rejectUnauthorized: process.env.NODE_ENV === 'production'
-    });
-
-    // Update the API client with the new agent
-    apiClient.defaults.httpsAgent = newHttpsAgent;
-
-    // Clear any cached data
-    clearCache();
-
-    logger.info('API client connection reset complete');
-}
-
 function clearCache() {
     cache.clients = {
         data: null,
         timestamp: null
     };
+    cache.userGroups = {};
+    cache.accessibleApps = {};
     logger.info('Cache cleared');
 }
 
@@ -367,6 +421,5 @@ module.exports = {
     getAccessibleOIDCClients,
     getAllOIDCClientsWithAccessInfo,
     getUserGroups,
-    clearCache,
-    resetConnection
+    clearCache
 };
