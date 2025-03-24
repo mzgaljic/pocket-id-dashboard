@@ -33,5 +33,17 @@ export const configService = {
   async getPocketIdUsersAccountUrl() {
     const baseUrl = await this.getPocketIdBaseUrl();
     return baseUrl ? `${baseUrl}/settings/account` : '#';
+  },
+
+  // Get the app title
+  async getAppTitle() {
+    const config = await this.getConfig();
+    return config.appTitle || 'Pocket ID Dashboard';
+  },
+
+  // Get the app title
+  async getSsoProviderName() {
+    const config = await this.getConfig();
+    return config.ssoProviderName || 'Pocket ID';
   }
 };

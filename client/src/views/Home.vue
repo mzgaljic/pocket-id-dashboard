@@ -10,7 +10,7 @@
             size="xl"
             class="mb-4"
           />
-          <h2 class="text-xl font-bold">Welcome to Pocket-ID</h2>
+          <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
         </div>
       </template>
       <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
@@ -32,7 +32,7 @@
           :loading="isLoading"
           :disabled="isLoading || !oidcInitialized"
         >
-          Sign In with Pocket-ID
+          Sign In with {{ ssoProviderName }}
         </UButton>
         <p v-if="!oidcInitialized" class="text-center text-amber-600 dark:text-amber-400 text-sm mt-4">
           OIDC service is initializing. Please wait a moment...
@@ -45,10 +45,13 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { authService } from '../services/auth';
+import {configService} from "@/services/config.js";
 
 const isLoading = ref(false);
 const error = ref(null);
 const oidcInitialized = ref(true);
+const appTitle = ref('');
+const ssoProviderName = ref('');
 
 onMounted(async () => {
   try {
@@ -56,6 +59,13 @@ onMounted(async () => {
     oidcInitialized.value = status.oidcInitialized;
   } catch (err) {
     error.value = 'Unable to connect to the authentication service.';
+  }
+  try {
+    appTitle.value = await configService.getAppTitle();
+    document.title = appTitle.value;
+    ssoProviderName.value = await configService.getSsoProviderName();
+  } catch (error) {
+    console.error('Failed to load app configuration:', error);
   }
 });
 

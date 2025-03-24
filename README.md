@@ -79,13 +79,14 @@ See [DATABASE.md](DATABASE.md) for database configuration options.
 
 Key environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| PORT | Server port | 3000 |
-| NODE_ENV | Environment (development/production) | development |
-| DB_CLIENT | Database client (better-sqlite3/pg) | better-sqlite3 |
-| DB_FILENAME | SQLite database path | ./data/pocket-id-dashboard.db |
-| ADMIN_EMAIL | Email for access request notifications | - |
+| Variable | Description                               | Default |
+|----------|-------------------------------------------|---------|
+| PORT | Server port                               | 3000 |
+| DB_CLIENT | Database client (better-sqlite3/pg)       | better-sqlite3 |
+| DB_FILENAME | SQLite database path                      | ./data/pocket-id-dashboard.db |
+| ADMIN_EMAIL | Email for access request notifications    | - |
+| APP_TITLE | Custom title for the dashboard            | Pocket ID Dashboard |
+| APP_SSO_PROVIDER_NAME | Custom provider text for the sign-in link | Pocket ID |
 
 
 ## License

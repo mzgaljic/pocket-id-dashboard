@@ -9,6 +9,7 @@ function sessionValidator(req, res, next) {
     if (req.path.startsWith('/auth/login') ||
         req.path.startsWith('/auth/callback') ||
         req.path === '/auth/status' ||
+        req.path === '/api/config' ||
         req.path === '/' ||
         req.path.includes('.')) {
         return next();

@@ -18,6 +18,9 @@ const oidcService = require('./services/oidcService');
 const emailService = require('./services/emailService');
 const logger = require('./utils/logger');
 
+if (process.env.NODE_ENV !== 'production') {
+    process.env.NODE_ENV = 'development';
+}
 // Validate environment variables
 if (!validateEnvironment()) {
     process.exit(1);
@@ -36,6 +39,8 @@ logger.info('Environment:', {
     OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
     OIDC_POST_LOGOUT_REDIRECT_URI: process.env.OIDC_POST_LOGOUT_REDIRECT_URI,
     POCKET_ID_BASE_URL: process.env.POCKET_ID_BASE_URL,
+    APP_TITLE: process.env.APP_TITLE,
+    APP_SSO_PROVIDER_NAME: process.env.APP_SSO_PROVIDER_NAME,
     LOG_LEVEL: process.env.LOG_LEVEL || 'info'
 });
 

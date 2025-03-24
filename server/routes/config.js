@@ -6,9 +6,11 @@ const logger = require('../utils/logger');
 router.get('/', (req, res) => {
     logger.debug('Client requested configuration');
 
-    // Important: only send metadata that is safe to expose to the client
+    // Important: only send metadata that is PUBLIC and SAFE to expose to the client
     res.json({
         pocketIdBaseUrl: process.env.POCKET_ID_BASE_URL || '',
+        appTitle: process.env.APP_TITLE || 'Pocket ID Dashboard',
+        ssoProviderName: process.env.APP_SSO_PROVIDER_NAME || 'Pocket ID',
     });
 });
 

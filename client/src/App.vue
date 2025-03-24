@@ -14,6 +14,8 @@ const loading = ref(true);
 const authError = ref(null);
 const authCheckFailed = ref(false);
 const pocketIdUserAccountUrl = ref('#');
+const appTitle = ref('');
+const ssoProviderName = ref('');
 
 // Initialize dark mode from localStorage or system preference
 onMounted(async () => {
@@ -39,10 +41,14 @@ onMounted(async () => {
   // Check authentication status
   await checkAuth();
 
+  // Load app configuration
   try {
+    appTitle.value = await configService.getAppTitle();
+    document.title = appTitle.value;
+    ssoProviderName.value = await configService.getSsoProviderName();
     pocketIdUserAccountUrl.value = await configService.getPocketIdUsersAccountUrl();
   } catch (error) {
-    console.error('Failed to load Pocket ID account URL:', error);
+    console.error('Failed to load app configuration:', error);
   }
 });
 
@@ -185,7 +191,7 @@ const logout = async () => {
             size="lg"
             class="mr-4"
           />
-          <h1 class="text-xl font-bold">Pocket-ID Dashboard</h1>
+          <h1 class="text-xl font-bold">{{ appTitle }}</h1>
         </div>
         <div class="flex items-center">
           <UButton
@@ -258,7 +264,7 @@ const logout = async () => {
                   size="xl"
                   class="mb-4"
                 />
-                <h2 class="text-xl font-bold">Welcome to Pocket-ID</h2>
+                <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
               </div>
             </template>
             <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
@@ -273,7 +279,7 @@ const logout = async () => {
                 icon="i-heroicons-arrow-right-circle"
                 @click="login"
               >
-                Sign In with Pocket-ID
+                Sign In with {{ ssoProviderName }}
               </UButton>
             </template>
           </UCard>
@@ -283,7 +289,6 @@ const logout = async () => {
         <router-view v-else />
       </main>
       <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400">
-        <p>&copy; {{ new Date().getFullYear() }} Pocket-ID Dashboard. All rights reserved.</p>
       </footer>
     </UContainer>
   </UApp>
