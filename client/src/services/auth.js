@@ -24,7 +24,8 @@ export const authService = {
       return response.data;
     } catch (error) {
       console.error('Error checking auth status:', error);
-      return { authenticated: false, user: null, oidcInitialized: false };
+      // Rethrow the error so it can be handled by the caller
+      throw error;
     }
   },
 
@@ -53,5 +54,5 @@ export const authService = {
       console.error('Logout failed', error);
       throw error;
     }
-  }
+  },
 };

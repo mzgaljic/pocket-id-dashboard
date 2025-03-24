@@ -12,6 +12,7 @@ const toast = useToast();
 const isLoggingOut = ref(false);
 const loading = ref(true);
 const authError = ref(null);
+const authCheckFailed = ref(false);
 const pocketIdUserAccountUrl = ref('#');
 
 // Initialize dark mode from localStorage or system preference
@@ -48,6 +49,10 @@ onMounted(async () => {
 async function checkAuth() {
   try {
     console.log('Checking authentication status...');
+    loading.value = true;
+    authError.value = null;
+    authCheckFailed.value = false;
+
     const { authenticated, user: userData, oidcInitialized } = await authService.checkAuthStatus();
     console.log('Auth status:', { authenticated, oidcInitialized });
 
@@ -55,9 +60,12 @@ async function checkAuth() {
       user.value = userData;
       console.log('User is authenticated:', userData);
     } else {
-      console.log('User is not authenticated, redirecting to home');
-      // If we're not on the home page, redirect to home
-      if (router.currentRoute.value.path !== '/') {
+      console.log('User is not authenticated');
+      user.value = null;
+
+      // If we're on a protected route, redirect to home
+      if (router.currentRoute.value.path !== '/' &&
+        router.currentRoute.value.meta?.requiresAuth) {
         router.push('/');
       }
     }
@@ -68,9 +76,30 @@ async function checkAuth() {
   } catch (error) {
     console.error('Auth check failed', error);
     authError.value = 'Failed to check authentication status';
+    authCheckFailed.value = true;
+    user.value = null;
+
+    // Show a toast notification
+    toast.add({
+      title: 'Authentication Error',
+      description: 'There was a problem checking your authentication status. Please try refreshing the page.',
+      icon: 'i-heroicons-exclamation-circle',
+      color: 'red',
+      timeout: 5000
+    });
+
+    // If we're on a protected route, redirect to home
+    if (router.currentRoute.value.path !== '/' &&
+      router.currentRoute.value.meta?.requiresAuth) {
+      router.push('/');
+    }
   } finally {
     loading.value = false;
   }
+}
+
+function retryAuthCheck() {
+  checkAuth();
 }
 
 // Watch for changes to isDark
@@ -200,7 +229,7 @@ const logout = async () => {
         </div>
 
         <!-- Show auth error if any -->
-        <div v-else-if="authError" class="flex items-center justify-center min-h-[60vh]">
+        <div v-else-if="authError || authCheckFailed" class="flex items-center justify-center min-h-[60vh]">
           <UCard class="max-w-md">
             <template #header>
               <div class="flex items-center text-red-500">
@@ -208,9 +237,12 @@ const logout = async () => {
                 <h3 class="text-lg font-medium">Authentication Error</h3>
               </div>
             </template>
-            <p>{{ authError }}</p>
+            <p>{{ authError || 'There was a problem with authentication. Please try again.' }}</p>
             <template #footer>
-              <UButton @click="checkAuth" color="primary">Retry</UButton>
+              <div class="flex justify-between">
+                <UButton @click="retryAuthCheck" color="primary">Retry</UButton>
+                <UButton @click="router.push('/')" color="gray" variant="soft">Go to Home</UButton>
+              </div>
             </template>
           </UCard>
         </div>

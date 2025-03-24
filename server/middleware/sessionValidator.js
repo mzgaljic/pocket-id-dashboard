@@ -1,15 +1,14 @@
 // server/middleware/sessionValidator.js
-
 const logger = require('../utils/logger');
 
 /**
  * Middleware to validate session integrity
  */
 function sessionValidator(req, res, next) {
-    // Skip for non-authenticated routes and status checks
+    // Skip for non-authenticated routes and static files
     if (req.path.startsWith('/auth/login') ||
         req.path.startsWith('/auth/callback') ||
-        req.path === '/auth/status' ||  // Add this line to skip validation for status checks
+        req.path === '/auth/status' ||
         req.path === '/' ||
         req.path.includes('.')) {
         return next();
@@ -26,10 +25,17 @@ function sessionValidator(req, res, next) {
         // Clear the invalid session
         req.session.destroy((err) => {
             if (err) logger.error('Error destroying invalid session:', err);
-            return res.status(401).json({
-                error: 'Invalid session',
-                code: 'invalid_session'
-            });
+
+            // For API requests, return JSON error
+            if (req.path.startsWith('/api/')) {
+                return res.status(401).json({
+                    error: 'Invalid session',
+                    code: 'invalid_session'
+                });
+            }
+
+            // For non-API requests, redirect to home page
+            return res.redirect('/');
         });
         return;
     }

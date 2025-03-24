@@ -2,25 +2,47 @@
 const logger = require('../utils/logger');
 
 const auth = (req, res, next) => {
+    // Check if it's an API request
+    const isApiRequest = req.path.startsWith('/api/');
+
     if (!req.session.user) {
         logger.warn('Unauthorized access attempt', {
             path: req.path,
             method: req.method,
-            ip: req.ip
+            ip: req.ip,
+            isApiRequest
         });
-        return res.status(401).json({ error: 'Unauthorized' });
+
+        // For API requests, return 401 JSON response
+        if (isApiRequest) {
+            return res.status(401).json({
+                error: 'Unauthorized',
+                code: 'not_authenticated'
+            });
+        }
+
+        // For non-API requests, redirect to the home page
+        return res.redirect('/');
     }
 
     // Check if token is expired
     if (req.session.tokenExpiry && new Date() > new Date(req.session.tokenExpiry)) {
         // Token expired, clear the session
         logger.info('Session expired', { userId: req.session.user.id });
+
         req.session.destroy((err) => {
             if (err) logger.error('Error destroying session:', err);
-            return res.status(401).json({
-                error: 'Session expired',
-                code: 'token_expired'
-            });
+
+            // For API requests, return 401 JSON response
+            if (isApiRequest) {
+                return res.status(401).json({
+                    error: 'Session expired',
+                    code: 'token_expired'
+                });
+            }
+
+            // For non-API requests, redirect to the home page
+            return res.redirect('/');
         });
         return;
     }
@@ -44,6 +66,7 @@ const auth = (req, res, next) => {
     req.user = req.session.user;
     next();
 };
+
 
 /**
  * Refresh the token in the background
