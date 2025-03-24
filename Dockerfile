@@ -1,24 +1,49 @@
-# Dockerfile
-FROM node:16-alpine
+# Build stage
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copy package.json files
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-# Install dependencies
-RUN npm install
-RUN cd client && npm install
+RUN npm ci
+RUN cd client && npm ci
 
 # Copy source code
 COPY . .
 
-# Build the Vue app
 RUN cd client && npm run build
 
-# Expose port
+# Production stage
+FROM node:20-alpine AS production
+
+ENV NODE_ENV=production
+
+# Create app directory
+WORKDIR /app
+
+# Install only production dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY --from=build /app/client/dist ./client/dist
+COPY --from=build /app/server ./server
+COPY --from=build /app/data ./data
+
+# Create data directory with proper permissions (in case sqlite is used)
+RUN mkdir -p /app/data && \
+    chown -R node:node /app/data && \
+    chmod 755 /app/data
+
+# volume for persistent data
+VOLUME /app/data
+
 EXPOSE 3000
 
-# Start the server
-CMD ["npm", "start"]
+# Switch to non-root user
+USER node
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget -q --spider http://localhost:3000/auth/status || exit 1
+
+CMD ["node", "server/index.js"]

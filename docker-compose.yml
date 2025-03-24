@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  app:
+    image: pocket-id-dashboard
+    build: .
+    ports: [ "3000:3000" ]
+    env_file: [ .env ]
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./data/docker-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/auth/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    user: "node"

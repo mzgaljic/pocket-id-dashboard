@@ -11,6 +11,7 @@ const { createSessionStore } = require('./services/sessionStore');
 const { sessionEncryption } = require('./middleware/sessionEncryption');
 const { sessionValidator } = require('./middleware/sessionValidator');
 const { startSessionCleanup } = require('./services/sessionCleanup');
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const { auth } = require('./middleware/auth');
 const appRoutes = require('./routes/apps');
 const oidcService = require('./services/oidcService');
@@ -64,12 +65,20 @@ async function startServer() {
             saveUninitialized: false,
             store: createSessionStore(session),
             cookie: {
-                secure: process.env.NODE_ENV === 'production',
+                secure: process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false',
                 httpOnly: true,
                 sameSite: 'lax',
                 maxAge: 24 * 60 * 60 * 1000 // 24 hours
             }
         };
+        // If behind a proxy (like Docker, traefik, etc.), trust the first proxy
+        if (process.env.NODE_ENV === 'production') {
+            app.set('trust proxy', 1);
+            // Only set secure cookies if not explicitly disabled
+            if (process.env.COOKIE_SECURE !== 'false') {
+                sessionConfig.cookie.secure = true;
+            }
+        }
 
         logger.info('Session configuration:', {
             name: sessionConfig.name,
@@ -199,14 +208,8 @@ async function startServer() {
             });
         }
 
-        // Error handling middleware
-        app.use((err, req, res, next) => {
-            logger.error('Unhandled error:', err);
-            res.status(500).json({
-                error: 'Internal Server Error',
-                message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
-            });
-        });
+        app.use(notFoundHandler);
+        app.use(errorHandler);
 
         startSessionCleanup(120);
 
@@ -221,18 +224,40 @@ async function startServer() {
     }
 }
 
-// Add a graceful shutdown handler
-process.on('SIGTERM', async () => {
-    logger.info('SIGTERM signal received, shutting down gracefully');
-    await closeDatabase();
-    process.exit(0);
-});
+// Graceful shutdown handler
+let isShuttingDown = false;
+function gracefulShutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
 
-process.on('SIGINT', async () => {
-    logger.info('SIGINT signal received, shutting down gracefully');
-    await closeDatabase();
-    process.exit(0);
-});
+    logger.info(`${signal} signal received, shutting down gracefully`);
+
+    // Set a timeout for the shutdown to complete
+    const forcedShutdownTimeout = setTimeout(() => {
+        logger.error('Forced shutdown due to timeout');
+        process.exit(1);
+    }, 30000); // 30 seconds timeout
+
+    // Close the server first to stop accepting new connections
+    server.close(async () => {
+        logger.info('HTTP server closed, cleaning up resources');
+
+        try {
+            // Close the database connection
+            await closeDatabase();
+            logger.info('Database connection closed');
+
+            // Clear the timeout and exit gracefully
+            clearTimeout(forcedShutdownTimeout);
+            process.exit(0);
+        } catch (error) {
+            logger.error('Error during graceful shutdown:', error);
+            process.exit(1);
+        }
+    });
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Start the server
 startServer();

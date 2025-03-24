@@ -7,3 +7,4 @@ node_modules
 /data/*.db-wal
 # But keep the directory
 !/data/.gitkeep
+data/docker-data
