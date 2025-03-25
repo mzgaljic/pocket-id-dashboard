@@ -52,15 +52,29 @@ const auth = (req, res, next) => {
     const now = new Date();
     const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
 
-    if (tokenExpiryTime && tokenExpiryTime < fiveMinutesFromNow && req.session.tokenSet && req.session.tokenSet.refresh_token) {
-        // Token is about to expire and we have a refresh token, try to refresh it
-        logger.info('Token about to expire, attempting refresh', { userId: req.session.user.id });
+    if (tokenExpiryTime && tokenExpiryTime < fiveMinutesFromNow) {
+        // Token is about to expire
+        logger.info('Token about to expire', { userId: req.session.user.id });
 
-        // Continue with the request, but trigger a token refresh in the background
-        refreshTokenInBackground(req)
-            .catch(error => {
-                logger.error('Background token refresh failed:', error);
-            });
+        // Check if we have a refresh token
+        if (req.session.tokenSet && req.session.tokenSet.refresh_token) {
+            // Try to refresh it
+            logger.info('Attempting token refresh', { userId: req.session.user.id });
+
+            // Continue with the request, but trigger a token refresh in the background
+            refreshTokenInBackground(req)
+                .catch(error => {
+                    logger.error('Background token refresh failed:', error);
+                });
+        } else {
+            // No refresh token available - this is expected with public clients
+            logger.info('No refresh token available - this is normal for public clients');
+
+            // For API requests, we could add a header to indicate token expiry is approaching
+            if (isApiRequest) {
+                res.set('X-Token-Expiring-Soon', 'true');
+            }
+        }
     }
 
     req.user = req.session.user;
@@ -77,12 +91,14 @@ async function refreshTokenInBackground(req) {
     try {
         // Only attempt refresh if we have the necessary data
         if (!req.session.tokenSet || !req.session.tokenSet.refresh_token) {
+            logger.debug('No refresh token available - skipping refresh');
             return;
         }
 
         // Call the OIDC service to refresh the token
         const result = await oidcService.refreshToken(req.session.tokenSet.refresh_token);
 
+        // Check if refresh was successful
         if (result.tokenSet) {
             // Update the session with the new token information
             req.session.tokenSet = {
@@ -108,6 +124,12 @@ async function refreshTokenInBackground(req) {
             });
 
             logger.info('Token refreshed successfully', { userId: req.session.user.id });
+        } else if (result.error) {
+            // Handle the case where refresh failed but we have a structured error
+            logger.warn(`Token refresh failed: ${result.error}`, {
+                message: result.message,
+                userId: req.session.user.id
+            });
         }
     } catch (error) {
         logger.error('Failed to refresh token:', error);

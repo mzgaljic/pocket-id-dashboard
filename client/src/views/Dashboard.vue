@@ -209,8 +209,11 @@ async function loadApps() {
 
     console.log(`Loaded ${accessibleApps.value.length} accessible apps and ${allApps.value.length} total apps`);
   } catch (err) {
-    console.error('Failed to load apps', err);
-    error.value = err.response?.data?.message || 'Failed to load applications. Please try again.';
+    // Only show error if not already handled by the interceptor
+    if (!err.__redirected) {
+      console.error('Failed to load apps', err);
+      error.value = err.response?.data?.message || 'Failed to load applications. Please try again.';
+    }
   } finally {
     loading.value = false;
   }

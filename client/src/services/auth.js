@@ -24,8 +24,12 @@ export const authService = {
       return response.data;
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // Rethrow the error so it can be handled by the caller
-      throw error;
+      return {
+        authenticated: false,
+        user: null,
+        oidcInitialized: false,
+        tokenStatus: null
+      };
     }
   },
 

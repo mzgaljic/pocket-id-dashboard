@@ -28,7 +28,25 @@ git clone https://github.com/yourusername/pocket-id-dashboard.git
 cd pocket-id-dashboard
 ```
 
-2. **Configure environment variables**
+2. **Configure a new OIDC client in Pocket ID**
+
+Create a new OIDC client in pocket ID, name it something like `Pocket ID Dashboard`.
+
+Then apply these settings (example) to the new OIDC client:
+```
+callback url(s):         https://pocket-id-dashboard.mydomain.com/auth/callback
+                         http://localhost:3000/auth/callback  <-- if testing locally
+                         
+logout callback url(s):  https://pocket-id-dashboard.mydomain.com
+                         http://localhost:3000  <-- if testing locally
+
+PKCE: true
+
+Public Client: true
+```
+
+
+3. **Configure environment variables**
 
 Create a `.env` file based on the sample:
 
@@ -41,7 +59,6 @@ Edit the `.env` file and set at minimum these required variables:
 ```
 # Required configuration
 OIDC_CLIENT_ID=your_client_id
-OIDC_CLIENT_SECRET=your_client_secret
 OIDC_DISCOVERY_URL=https://your-oidc-provider/.well-known/openid-configuration
 OIDC_REDIRECT_URI=https://your-domain.com/auth/callback
 OIDC_POST_LOGOUT_REDIRECT_URI=https://your-domain.com
@@ -51,7 +68,7 @@ SESSION_SECRET=your_secure_session_secret  # Run 'npm run generate-secret' to ge
 ```
 > Note: The Docker Compose configuration uses this .env file directly via the env_file option, so all your configuration will be applied to the container automatically.
 
-3. **Run with Docker Compose**
+4. **Run with Docker Compose**
 
 ```bash
 docker compose up -d
@@ -76,17 +93,6 @@ npm run dev
 ## Configuration
 
 See [DATABASE.md](DATABASE.md) for database configuration options.
-
-Key environment variables:
-
-| Variable | Description                               | Default |
-|----------|-------------------------------------------|---------|
-| PORT | Server port                               | 3000 |
-| DB_CLIENT | Database client (better-sqlite3/pg)       | better-sqlite3 |
-| DB_FILENAME | SQLite database path                      | ./data/pocket-id-dashboard.db |
-| ADMIN_EMAIL | Email for access request notifications    | - |
-| APP_TITLE | Custom title for the dashboard            | Pocket ID Dashboard |
-| APP_SSO_PROVIDER_NAME | Custom provider text for the sign-in link | Pocket ID |
 
 
 ## License

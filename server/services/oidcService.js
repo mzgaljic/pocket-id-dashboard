@@ -19,14 +19,13 @@ async function initializeOIDCClient() {
             clientId: process.env.OIDC_CLIENT_ID
         });
 
-        // Use the discovery function to initialize the client configuration
+        // Use the discovery function without client secret (public client)
         config = await discovery(
             new URL(process.env.OIDC_DISCOVERY_URL),
-            process.env.OIDC_CLIENT_ID,
-            process.env.OIDC_CLIENT_SECRET
+            process.env.OIDC_CLIENT_ID
         );
 
-        logger.info('OIDC client initialized successfully');
+        logger.info('OIDC client initialized successfully as a public client');
         logger.debug('OIDC endpoints', {
             authorizationEndpoint: config.serverMetadata().authorization_endpoint,
             tokenEndpoint: config.serverMetadata().token_endpoint,
@@ -111,7 +110,7 @@ async function handleCallback(req) {
     }
 
     try {
-        // Use the authorizationCodeGrant function from openid-client
+        // Use the authorizationCodeGrant function without client secret
         const currentUrl = new URL(req.originalUrl, `http://${req.headers.host}`);
         logger.debug('Exchanging authorization code for tokens');
 
@@ -226,6 +225,16 @@ async function refreshToken(refreshToken) {
         throw new Error('OIDC client not initialized');
     }
 
+    // If no refresh token is provided, handle gracefully
+    if (!refreshToken) {
+        logger.warn('No refresh token available - refresh tokens may not be supported for public clients');
+        return {
+            tokenSet: null,
+            error: 'no_refresh_token',
+            message: 'No refresh token available. The user will need to re-authenticate.'
+        };
+    }
+
     try {
         logger.info('Refreshing access token');
 
@@ -243,7 +252,14 @@ async function refreshToken(refreshToken) {
         return { tokenSet };
     } catch (error) {
         logger.error('Token refresh error:', error);
-        throw error;
+
+        // Return a structured error response
+        return {
+            tokenSet: null,
+            error: 'refresh_failed',
+            message: 'Failed to refresh the access token. The user will need to re-authenticate.',
+            originalError: error
+        };
     }
 }
 

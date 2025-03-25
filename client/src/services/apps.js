@@ -1,15 +1,14 @@
 // client/src/services/apps.js
-import axios from 'axios';
+import api from './api';
 
 const API_URL = '/api/apps';
-
 export const appService = {
   async getApps() {
     try {
       console.log('Fetching apps from API...');
       const [appsResponse, requestsResponse] = await Promise.all([
-        axios.get(API_URL),
-        axios.get(`${API_URL}/requests`)
+        api.get(API_URL),
+        api.get(`${API_URL}/requests`)
       ]);
 
       console.log('Apps fetched successfully:', appsResponse.data);
@@ -47,7 +46,7 @@ export const appService = {
   async requestAccess(appId) {
     try {
       console.log(`Requesting access to app ${appId}...`);
-      const response = await axios.post(`${API_URL}/request-access`, { appId });
+      const response = await api.post(`${API_URL}/request-access`, { appId });
       console.log('Access request submitted:', response.data);
 
       // Return the updated request data

@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import { authService } from './services/auth';
 import { configService } from './services/config';
 import { setFavicon } from './utils/favicon';
-
+import SessionExpiryWarning from './components/SessionExpiryWarning.vue';
 
 
 const user = ref(null);
@@ -320,5 +320,6 @@ const logout = async () => {
       <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400">
       </footer>
     </UContainer>
+    <SessionExpiryWarning v-if="user" />
   </UApp>
 </template>

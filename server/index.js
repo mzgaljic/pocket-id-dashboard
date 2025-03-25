@@ -35,7 +35,6 @@ logger.info('Environment:', {
     PORT: process.env.PORT,
     OIDC_DISCOVERY_URL: process.env.OIDC_DISCOVERY_URL,
     OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
-    OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET ? '[SET]' : '[NOT SET]',
     OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
     OIDC_POST_LOGOUT_REDIRECT_URI: process.env.OIDC_POST_LOGOUT_REDIRECT_URI,
     POCKET_ID_BASE_URL: process.env.POCKET_ID_BASE_URL,

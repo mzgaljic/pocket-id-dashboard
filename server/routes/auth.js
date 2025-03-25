@@ -108,6 +108,21 @@ router.get('/status', (req, res) => {
         logger.debug('OIDC not initialized yet');
     }
 
+    // Calculate token expiration time if available
+    let tokenStatus = null;
+    if (hasSession && req.session.tokenExpiry) {
+        const now = new Date();
+        const expiryTime = new Date(req.session.tokenExpiry);
+        const diffMs = expiryTime - now;
+        const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+        tokenStatus = {
+            isExpired: diffMinutes <= 0,
+            expiresInMinutes: diffMinutes,
+            expiryTime: req.session.tokenExpiry
+        };
+    }
+
     // If session exists but is invalid (no user), destroy it
     if (req.session && !req.session.user) {
         logger.debug('Status check found session without user, cleaning up');
@@ -117,7 +132,8 @@ router.get('/status', (req, res) => {
             res.json({
                 authenticated: false,
                 user: null,
-                oidcInitialized
+                oidcInitialized,
+                tokenStatus: null
             });
         });
         return;
@@ -126,7 +142,8 @@ router.get('/status', (req, res) => {
     res.json({
         authenticated: hasSession,
         user: req.session.user || null,
-        oidcInitialized
+        oidcInitialized,
+        tokenStatus
     });
 });
 
