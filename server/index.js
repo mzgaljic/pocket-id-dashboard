@@ -55,6 +55,7 @@ app.use(cookieParser());
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Initialize database and start server after initialization
+let server = null;
 async function startServer() {
     try {
         // Initialize database first
@@ -218,7 +219,7 @@ async function startServer() {
         startSessionCleanup(120);
 
         // Start the server
-        app.listen(PORT, () => {
+        server = app.listen(PORT, () => {
             logger.info(`Server running on port ${PORT}`);
         });
 
@@ -230,35 +231,72 @@ async function startServer() {
 
 // Graceful shutdown handler
 let isShuttingDown = false;
+const serverCloseTimeout = 5000;
 function gracefulShutdown(signal) {
     if (isShuttingDown) return;
     isShuttingDown = true;
 
     logger.info(`${signal} signal received, shutting down gracefully`);
 
-    // Set a timeout for the shutdown to complete
     const forcedShutdownTimeout = setTimeout(() => {
         logger.error('Forced shutdown due to timeout');
         process.exit(1);
-    }, 30000); // 30 seconds timeout
+    }, serverCloseTimeout * 2);
 
-    // Close the server first to stop accepting new connections
-    server.close(async () => {
-        logger.info('HTTP server closed, cleaning up resources');
+    logger.info('Closing HTTP server...');
 
+    if (server) {
+        // stop accepting new connections, then cleanup
+        server.close((err) => {
+            if (err) {
+                logger.error('Error closing HTTP server:', err);
+            } else {
+                logger.info('HTTP server closed successfully');
+            }
+            cleanupDatabase()
+                .catch(err => {
+                    logger.error('Unhandled error during database cleanup:', err);
+                    clearTimeout(forcedShutdownTimeout);
+                    process.exit(1);
+                });
+        });
+
+        setTimeout(() => {
+            logger.warn('Server close operation timed out, proceeding with database cleanup');
+            cleanupDatabase()
+                .catch(err => {
+                    logger.error('Unhandled error during database cleanup after timeout:', err);
+                    clearTimeout(forcedShutdownTimeout);
+                    process.exit(1);
+                });
+        }, serverCloseTimeout);
+    } else {
+        logger.warn('Server not initialized, cleaning up resources directly');
+        cleanupDatabase()
+            .catch(err => {
+                logger.error('Unhandled error during database cleanup:', err);
+                clearTimeout(forcedShutdownTimeout);
+                process.exit(1);
+            });
+    }
+
+    async function cleanupDatabase() {
+        logger.info('Cleaning up database connection...');
         try {
-            // Close the database connection
             await closeDatabase();
-            logger.info('Database connection closed');
+            logger.info('Database connection closed successfully');
 
-            // Clear the timeout and exit gracefully
             clearTimeout(forcedShutdownTimeout);
+            logger.info('Graceful shutdown completed successfully');
             process.exit(0);
+            return Promise.resolve();
         } catch (error) {
-            logger.error('Error during graceful shutdown:', error);
+            logger.error('Error during database cleanup:', error);
+            clearTimeout(forcedShutdownTimeout);
             process.exit(1);
+            return Promise.reject(error);
         }
-    });
+    }
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
