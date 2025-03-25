@@ -256,9 +256,10 @@ async function getUserGroups(userId) {
  * @returns {Promise<Array>} - Array of accessible clients with details
  */
 async function getAccessibleOIDCClients(userGroups) {
+    const excludeClientId = process.env.OIDC_CLIENT_ID
     try {
         // Generate a cache key based on the user's groups
-        const cacheKey = hashArray(userGroups);
+        const cacheKey = hashArray(userGroups) + (excludeClientId ? `_exclude_${excludeClientId}` : '');
 
         // Check cache first
         if (cache.accessibleApps[cacheKey] &&
@@ -277,22 +278,24 @@ async function getAccessibleOIDCClients(userGroups) {
 
         // For each client, get details and check if user has access
         for (const client of clients) {
+            // Skip the excluded client ID
+            if (excludeClientId && client.id === excludeClientId) {
+                logger.debug(`Skipping current app client: ${client.id}`);
+                continue;
+            }
+
             try {
                 const clientDetails = await getOIDCClient(client.id);
-
                 // Extract group names from allowedUserGroups
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
-
                 // Check if user is in any of the allowed groups
                 const hasAccess = allowedGroups.some(group => userGroups.includes(group));
-
                 // Add client to accessible list if user has access
                 if (hasAccess) {
                     // Extract base URL from the first callback URL
                     const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                         ? extractBaseUrl(client.callbackURLs[0])
                         : '#';
-
                     accessibleClients.push({
                         id: client.id,
                         name: client.name,
@@ -308,6 +311,7 @@ async function getAccessibleOIDCClients(userGroups) {
                 // Continue with next client
             }
         }
+
         // Cache the results
         cache.accessibleApps[cacheKey] = {
             data: accessibleClients,
@@ -329,9 +333,11 @@ async function getAccessibleOIDCClients(userGroups) {
  */
 async function getAllOIDCClientsWithAccessInfo(userGroups) {
     // Similar caching logic as getAccessibleOIDCClients
+
+    const excludeClientId = process.env.OIDC_CLIENT_ID
     try {
         // Generate a cache key based on the user's groups
-        const cacheKey = `all_${hashArray(userGroups)}`;
+        const cacheKey = `all_${hashArray(userGroups)}${excludeClientId ? `_exclude_${excludeClientId}` : ''}`;
 
         // Check cache first
         if (cache.accessibleApps[cacheKey] &&
@@ -347,26 +353,27 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
         // Array to store all clients with access information
         const allClients = [];
         let accessibleCount = 0;
-
         logger.debug(`Processing ${clients.length} clients for access information`);
 
         // For each client, get details and check if user has access
         for (const client of clients) {
+            // Skip the excluded client ID
+            if (excludeClientId && client.id === excludeClientId) {
+                logger.debug(`Skipping current app client: ${client.id}`);
+                continue;
+            }
+
             try {
                 const clientDetails = await getOIDCClient(client.id);
-
                 // Extract group names from allowedUserGroups
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
-
                 // Check if user is in any of the allowed groups
                 const hasAccess = allowedGroups.some(group => userGroups.includes(group));
                 if (hasAccess) accessibleCount++;
-
                 // Extract base URL from the first callback URL
                 const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                     ? extractBaseUrl(client.callbackURLs[0])
                     : '#';
-
                 // Add client to list with access information
                 allClients.push({
                     id: client.id,

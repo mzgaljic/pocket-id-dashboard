@@ -19,7 +19,6 @@ router.get('/', async (req, res) => {
         }
 
         logger.info('Fetching groups for user', { userId });
-
         // Get user groups from the API
         const userGroups = await pocketIdService.getUserGroups(userId);
         logger.debug(`Retrieved ${userGroups.length} groups for user`, { userId });
@@ -30,21 +29,14 @@ router.get('/', async (req, res) => {
         // Get accessible apps for the user
         logger.info('Fetching accessible apps for user', { userId, groupCount: groupNames.length });
         const accessibleApps = await pocketIdService.getAccessibleOIDCClients(groupNames);
-        logger.debug(`Found ${accessibleApps.length} accessible apps for user`, { userId });
 
-        // Log the redirect URIs for debugging
-        logger.verbose('App redirect URIs', {
-            apps: accessibleApps.map(app => ({
-                id: app.id,
-                name: app.name,
-                redirectUri: app.redirectUri
-            }))
-        });
+        logger.debug(`Found ${accessibleApps.length} accessible apps for user (excluding current app)`, { userId });
 
-        // Get all apps with access information for the "request access" feature
+        // Get all apps with access information, excluding the current app
         logger.info('Fetching all apps with access info', { userId });
         const allApps = await pocketIdService.getAllOIDCClientsWithAccessInfo(groupNames);
-        logger.debug(`Found ${allApps.length} total apps`, { userId });
+
+        logger.debug(`Found ${allApps.length} total apps (excluding current app)`, { userId });
 
         res.json({
             accessibleApps,
