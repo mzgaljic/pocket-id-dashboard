@@ -8,3 +8,4 @@ node_modules
 # But keep the directory
 !/data/.gitkeep
 data/docker-data
+data/oidc-clients-metadata.yaml

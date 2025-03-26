@@ -2,6 +2,9 @@
 const https = require('https');
 const {URL} = require('url');
 const logger = require('../utils/logger');
+const { findClientMetadata, clearMetadataCache } = require('../utils/metadataLoader');
+
+
 
 // Base URL for the Pocket-ID API
 const POCKET_ID_BASE_URL = process.env.POCKET_ID_BASE_URL;
@@ -295,10 +298,13 @@ async function getAccessibleOIDCClients(userGroups) {
                     const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                         ? extractBaseUrl(client.callbackURLs[0])
                         : '#';
+
+                    const enrichedMetadata = findClientMetadata(client);
+
                     accessibleClients.push({
                         id: client.id,
                         name: client.name,
-                        description: clientDetails.description || `Access to ${client.name}`,
+                        description: enrichedMetadata?.description || clientDetails.description || undefined,
                         logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                         redirectUri,
                         allowedGroups,
@@ -371,11 +377,13 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
                 const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                     ? extractBaseUrl(client.callbackURLs[0])
                     : '#';
-                // Add client to list with access information
+
+                const enrichedMetadata = findClientMetadata(client);
+
                 allClients.push({
                     id: client.id,
                     name: client.name,
-                    description: clientDetails.description || `Access to ${client.name}`,
+                    description: enrichedMetadata?.description || clientDetails.description || undefined,
                     logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                     redirectUri,
                     allowedGroups,
@@ -417,9 +425,9 @@ function clearCache() {
     };
     cache.userGroups = {};
     cache.accessibleApps = {};
+    clearMetadataCache();
     logger.info('Cache cleared');
 }
-
 module.exports = {
     listOIDCClients,
     getOIDCClient,
