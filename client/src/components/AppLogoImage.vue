@@ -1,4 +1,4 @@
-<!-- client/src/components/AppLogoImage.vue -->
+<!-- Logo for the Pocket ID Dashboard, fetched from Pocket ID server. -->
 <template>
   <div class="app-logo-container" :class="[sizeClass, { 'dark-mode': isDark }]">
     <img
@@ -58,6 +58,27 @@ function handleError(event) {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain; /* This preserves aspect ratio */
+}
+
+/* Size variants */
+.size-sm {
+  width: 32px;
+  height: 32px;
+}
+
+.size-md {
+  width: 48px;
+  height: 48px;
+}
+
+.size-lg {
+  width: 64px;
+  height: 64px;
+}
+
+.size-xl {
+  width: 96px;
+  height: 96px;
 }
 
 /* Add a subtle background for better visibility in dark mode */
