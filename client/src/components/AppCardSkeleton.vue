@@ -36,8 +36,8 @@
 }
 
 .skeleton-logo {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
   background-color: #e2e8f0;
   animation: pulse 1.5s infinite;

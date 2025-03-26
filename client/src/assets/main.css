@@ -136,7 +136,17 @@ button:disabled,
   opacity: 0;
 }
 
+/* Remove padding inside UCard */
+div.p-4.sm\:p-6 {
+  padding: 0 !important;
+}
 
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* Custom responsive styles */
 @media (max-width: 768px) {

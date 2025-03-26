@@ -60,27 +60,6 @@ function handleError(event) {
   object-fit: contain; /* This preserves aspect ratio */
 }
 
-/* Size variants */
-.size-sm {
-  width: 32px;
-  height: 32px;
-}
-
-.size-md {
-  width: 48px;
-  height: 48px;
-}
-
-.size-lg {
-  width: 64px;
-  height: 64px;
-}
-
-.size-xl {
-  width: 96px;
-  height: 96px;
-}
-
 /* Add a subtle background for better visibility in dark mode */
 .dark-mode .app-logo-image {
   background-color: transparent;

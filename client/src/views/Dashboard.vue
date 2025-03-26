@@ -3,18 +3,19 @@
   <div>
     <!-- Loading state -->
     <div v-if="loading" class="py-12">
-      <USeparator class="my-4" />
+      <USeparator class="my-4"/>
       <div class="flex flex-col items-center justify-center py-12">
-        <UIcon name="i-heroicons-arrow-path" class="text-gray-400 dark:text-gray-600 w-12 h-12 animate-spin mb-4" />
+        <UIcon name="i-heroicons-arrow-path"
+               class="text-gray-400 dark:text-gray-600 w-12 h-12 animate-spin mb-4"/>
         <p class="text-gray-500 dark:text-gray-400">Loading your applications...</p>
       </div>
-      <USeparator class="my-4" />
+      <USeparator class="my-4"/>
     </div>
 
     <!-- Error state -->
     <UCard v-else-if="error" class="my-6 border-red-200 dark:border-red-800">
       <div class="flex flex-col items-center justify-center py-8">
-        <UIcon name="i-heroicons-exclamation-circle" class="text-red-500 w-12 h-12 mb-4" />
+        <UIcon name="i-heroicons-exclamation-circle" class="text-red-500 w-12 h-12 mb-4"/>
         <h3 class="text-xl font-semibold mb-2">Error Loading Applications</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
           {{ error }}
@@ -26,11 +27,14 @@
     <!-- No apps state -->
     <UCard v-else-if="accessibleApps.length === 0" class="my-6">
       <div class="flex flex-col items-center justify-center py-12">
-        <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-600 w-16 h-16 mb-4" />
+        <UIcon name="i-heroicons-folder-open"
+               class="text-gray-400 dark:text-gray-600 w-16 h-16 mb-4"/>
         <h3 class="text-xl font-semibold mb-2">No Applications Available</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
           You don't have access to any applications yet.
-          {{ appsToRequest.length > 0 ? 'Request access below to get started.' : 'No applications are available for request at this time.' }}
+          {{
+            appsToRequest.length > 0 ? 'Request access below to get started.' : 'No applications are available for request at this time.'
+          }}
         </p>
         <UButton
           v-if="appsToRequest.length > 0"
@@ -44,7 +48,7 @@
     </UCard>
 
     <!-- Apps grid -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div v-else class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-1">
       <UCard
         v-for="app in accessibleApps"
         :key="app.id"
@@ -56,21 +60,23 @@
             v-if="app.logo"
             :src="app.logo"
             :alt="app.name"
-            class="w-16 h-16 object-contain mb-4 rounded-lg"
+            class="w-12 h-12 object-contain mb-2 mt-8"
             @error="handleLogoError($event, app)"
           />
-          <AppLogo
-            v-else
-            :name="app.name"
-            class="mb-4"
-          />
-          <h3 class="text-lg font-semibold mb-2">{{ app.name }}</h3>
-          <p class="text-gray-500 dark:text-gray-400 text-center mb-6">{{ app.description }}</p>
+          <AppLogo v-else :name="app.name" class="w-12 h-12 mb-2 mt-8"/>
+
+          <h3 class="text-lg font-semibold mb-1">{{ app.name }}</h3>
+          <!-- Fixed height description with truncation -->
+          <div class="h-10 w-full mb-4">
+            <p class="text-gray-500 dark:text-gray-400 text-center text-4 line-clamp-2">
+              {{ app.description }}
+            </p>
+          </div>
           <UButton
             color="primary"
             variant="soft"
             icon="i-heroicons-arrow-top-right-on-square"
-            class="w-full"
+            class="w-full text-sm py-1"
           >
             Launch App
           </UButton>
@@ -91,9 +97,9 @@
         size="xxl"
       >
         <template #leading>
-          <UIcon :name="showAllApps ? 'i-heroicons-x-mark' : 'i-heroicons-plus'" class="w-5 h-5" />
+          <UIcon :name="showAllApps ? 'i-heroicons-x-mark' : 'i-heroicons-plus'" class="w-5 h-5"/>
         </template>
-        <ButtonTextTransition :text="showAllApps ? 'Hide Request Panel' : 'Request Access'" />
+        <ButtonTextTransition :text="showAllApps ? 'Hide Request Panel' : 'Request Access'"/>
       </UButton>
     </div>
 
@@ -118,21 +124,23 @@
       </template>
       <!-- Loading state for all apps -->
       <div v-if="loading" class="py-8 text-center">
-        <UIcon name="i-heroicons-arrow-path" class="text-gray-400 dark:text-gray-600 w-8 h-8 animate-spin mb-2 mx-auto" />
+        <UIcon name="i-heroicons-arrow-path"
+               class="text-gray-400 dark:text-gray-600 w-8 h-8 animate-spin mb-2 mx-auto"/>
         <p class="text-gray-500 dark:text-gray-400">Loading applications...</p>
       </div>
       <!-- No apps to request -->
       <div v-else-if="appsToRequest.length === 0" class="py-8 text-center">
-        <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-600 w-8 h-8 mb-2 mx-auto" />
-        <p class="text-gray-500 dark:text-gray-400">You already have access to all available applications.</p>
+        <UIcon name="i-heroicons-folder-open"
+               class="text-gray-400 dark:text-gray-600 w-8 h-8 mb-2 mx-auto"/>
+        <p class="text-gray-500 dark:text-gray-400">You already have access to all available
+          applications.</p>
       </div>
       <!-- Apps list -->
-      <div v-else class="space-y-4 mt-2">
+      <div v-else class="space-y-4 mt-2 p-2">
         <UCard
           v-for="app in appsToRequest"
           :key="app.id"
-          :ui="{ body: { padding: 'p-4' } }"
-          class="bg-gray-50 dark:bg-gray-800"
+          class="bg-gray-50 dark:bg-gray-800 p-4 mt-4"
         >
           <div class="flex items-center">
             <img
