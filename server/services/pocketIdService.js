@@ -288,9 +288,8 @@ async function getAccessibleOIDCClients(userGroups) {
                 const clientDetails = await getOIDCClient(client.id);
                 // Extract group names from allowedUserGroups
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
-                // Check if user is in any of the allowed groups
+
                 const hasAccess = allowedGroups.some(group => userGroups.includes(group));
-                // Add client to accessible list if user has access
                 if (hasAccess) {
                     // Extract base URL from the first callback URL
                     const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
@@ -311,6 +310,8 @@ async function getAccessibleOIDCClients(userGroups) {
                 // Continue with next client
             }
         }
+
+        accessibleClients.sort((a, b) => a.name.localeCompare(b.name));
 
         // Cache the results
         cache.accessibleApps[cacheKey] = {
@@ -346,18 +347,15 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
             return cache.accessibleApps[cacheKey].data;
         }
 
-        // Get all clients
         logger.info('Fetching all clients with access information');
         const { data: clients } = await listOIDCClients();
 
-        // Array to store all clients with access information
         const allClients = [];
         let accessibleCount = 0;
         logger.debug(`Processing ${clients.length} clients for access information`);
 
         // For each client, get details and check if user has access
         for (const client of clients) {
-            // Skip the excluded client ID
             if (excludeClientId && client.id === excludeClientId) {
                 logger.debug(`Skipping current app client: ${client.id}`);
                 continue;
@@ -365,11 +363,10 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
 
             try {
                 const clientDetails = await getOIDCClient(client.id);
-                // Extract group names from allowedUserGroups
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
-                // Check if user is in any of the allowed groups
                 const hasAccess = allowedGroups.some(group => userGroups.includes(group));
                 if (hasAccess) accessibleCount++;
+
                 // Extract base URL from the first callback URL
                 const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                     ? extractBaseUrl(client.callbackURLs[0])
@@ -389,6 +386,8 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
                 // Continue with next client
             }
         }
+
+        allClients.sort((a, b) => a.name.localeCompare(b.name));
 
         // Cache the results
         cache.accessibleApps[cacheKey] = {
