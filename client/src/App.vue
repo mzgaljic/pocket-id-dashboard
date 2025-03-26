@@ -1,12 +1,12 @@
 <!-- src/App.vue -->
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { authService } from './services/auth';
+import { appService } from './services/apps';
 import { configService } from './services/config';
 import { setFavicon } from './utils/favicon';
 import SessionExpiryWarning from './components/SessionExpiryWarning.vue';
-
 
 const user = ref(null);
 const router = useRouter();
@@ -20,6 +20,24 @@ const pocketIdUserAccountUrl = ref('#');
 const appTitle = ref('');
 const ssoProviderName = ref('');
 const logoUrl = ref('');
+const isClearingCache = ref(false);
+const reloadTrigger = ref(0);
+
+provide('reloadTrigger', reloadTrigger);
+
+const isAdmin = computed(() => {
+  return user.value?.isAdmin === true;
+});
+
+// watch(user, (newUser) => {
+//   if (newUser) {
+//     console.log('User loaded:', {
+//       name: newUser.name,
+//       isAdmin: newUser.isAdmin,
+//       groups: newUser.groups
+//     });
+//   }
+// });
 
 function handleLogoError() {
   console.log('Error loading app logo.');
@@ -154,23 +172,71 @@ const toggleDarkMode = () => {
   isDark.value = !isDark.value;
 };
 
-const userMenuItems = computed(() => [
-  [
-    {
-      label: 'Profile',
-      icon: 'i-heroicons-user-circle',
-      onSelect: () => window.open(pocketIdUserAccountUrl.value, '_blank')
-    },
-  ],
-  [
-    {
-      label: isLoggingOut.value ? 'Logging out...' : 'Sign Out',
-      icon: isLoggingOut.value ? 'i-heroicons-arrow-path' : 'i-heroicons-arrow-right-on-rectangle',
-      disabled: isLoggingOut.value,
-      onSelect: () => logout(),
-    }
-  ]
-]);
+async function clearServerCache() {
+  if (!isAdmin.value) return;
+
+  try {
+    isClearingCache.value = true;
+    await appService.clearCache();
+
+    // trigger components to refresh (re-fetch from api)
+    reloadTrigger.value++;
+
+    toast.add({
+      title: 'Cache Cleared',
+      description: 'Server cache has been cleared successfully. Refreshing data...',
+      icon: 'i-heroicons-check-circle',
+      color: 'green',
+      timeout: 5000
+    });
+  } catch (error) {
+    console.error('Failed to clear cache:', error);
+    toast.add({
+      title: 'Error',
+      description: 'Failed to clear server cache. Please try again.',
+      icon: 'i-heroicons-exclamation-circle',
+      color: 'red',
+      timeout: 5000
+    });
+  } finally {
+    isClearingCache.value = false;
+  }
+}
+
+const userMenuItems = computed(() => {
+  const items = [
+    [
+      {
+        label: 'Profile',
+        icon: 'i-heroicons-user-circle',
+        onSelect: () => window.open(pocketIdUserAccountUrl.value, '_blank')
+      },
+    ],
+    [
+      {
+        label: isLoggingOut.value ? 'Logging out...' : 'Sign Out',
+        icon: isLoggingOut.value ? 'i-heroicons-arrow-path' : 'i-heroicons-arrow-right-on-rectangle',
+        disabled: isLoggingOut.value,
+        onSelect: () => logout(),
+      }
+    ]
+  ];
+
+  // admin-only features
+  if (isAdmin.value) {
+    // Insert before the last group (sign out)
+    items.splice(1, 0, [
+      {
+        label: isClearingCache.value ? 'Clearing Cache...' : 'Clear Server Cache',
+        icon: isClearingCache.value ? 'i-heroicons-arrow-path' : 'i-heroicons-trash',
+        disabled: isClearingCache.value,
+        onSelect: () => clearServerCache(),
+      }
+    ]);
+  }
+
+  return items;
+});
 
 const getUserInitials = (name) => {
   if (!name) return '';
@@ -273,7 +339,7 @@ const logout = async () => {
             <p>{{ authError || 'There was a problem with authentication. Please try again.' }}</p>
             <template #footer>
               <div class="flex justify-between">
-                <UButton @click="retryAuthCheck" color="primary">Retry</UButton>
+                <UButton @click="retryAuthCheck" color="gray" variant="soft">Retry</UButton>
                 <UButton @click="router.push('/')" color="gray" variant="soft">Go to Home</UButton>
               </div>
             </template>

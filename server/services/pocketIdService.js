@@ -26,8 +26,8 @@ function hashArray(arr) {
 
 // cache TTLs
 const CACHE_EXPIRY = 3600000; // 1 hour for clients
-const USER_GROUPS_CACHE_EXPIRY = 5000; // 5 seconds for user groups
-const ACCESSIBLE_APPS_CACHE_EXPIRY = 10000; // 10 seconds for accessible apps
+const USER_GROUPS_CACHE_EXPIRY = 10000; // 10 seconds for user groups
+const ACCESSIBLE_APPS_CACHE_EXPIRY = 30000; // 30 seconds for accessible apps
 
 /**
  * Check if cache is valid

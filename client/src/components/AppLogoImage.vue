@@ -40,7 +40,6 @@ const sizeClass = computed(() => `size-${props.size}`);
 
 // Handle image load errors
 function handleError(event) {
-  console.error('Error loading logo:', event);
   emit('error', event);
 }
 </script>

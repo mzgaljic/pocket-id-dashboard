@@ -146,18 +146,51 @@ router.get('/:id/logo', async (req, res) => {
 // Clear the cache
 router.post('/clear-cache', auth, async (req, res) => {
     try {
-        // Check if user is an admin
-        if (!req.user.isAdmin) {
-            logger.warn('Non-admin user attempted to clear cache', { userId: req.user.id });
-            return res.status(403).json({ error: 'Unauthorized' });
+        const userId = req.user.id;
+        const adminGroupName = process.env.ADMIN_GROUP_NAME;
+        if (!adminGroupName) {
+            logger.warn('Attempt to clear the cache, but no admin group has been defined.');
+            return res.status(403).json({
+                error: 'Unauthorized',
+                message: 'You do not have permission to clear the cache'
+            });
         }
 
-        logger.info('Clearing cache', { userId: req.user.id });
+        logger.info('Cache clear requested - verifying admin status', { userId });
+
+        const userGroups = await pocketIdService.getUserGroups(userId);
+        const groupNames = userGroups.map(group => group.name);
+        const isCurrentlyAdmin = groupNames.includes(adminGroupName);
+
+        if (!isCurrentlyAdmin) {
+            logger.warn('Non-admin user attempted to clear cache', {
+                userId,
+                groups: groupNames,
+                adminGroup: adminGroupName
+            });
+            return res.status(403).json({
+                error: 'Unauthorized',
+                message: 'You do not have permission to clear the cache'
+            });
+        }
+
+        logger.info('Admin verification successful, clearing cache', { userId });
         pocketIdService.clearCache();
-        res.json({ success: true, message: 'Cache cleared successfully' });
+
+        // Update session
+        req.session.user.groups = groupNames;
+        req.session.user.isAdmin = isCurrentlyAdmin;
+
+        res.json({
+            success: true,
+            message: 'Cache cleared successfully'
+        });
     } catch (error) {
         logger.error('Error clearing cache:', error);
-        res.status(500).json({ error: 'Failed to clear cache', message: error.message });
+        res.status(500).json({
+            error: 'Failed to clear cache',
+            message: error.message
+        });
     }
 });
 

@@ -134,11 +134,11 @@
           applications.</p>
       </div>
       <!-- Apps list -->
-      <div v-else class="px-3 py-4">
+      <div v-else class="px-3 pb-2">
         <UCard
           v-for="app in appsToRequest"
           :key="app.id"
-          class="bg-gray-50 dark:bg-gray-800 p-4"
+          class="bg-gray-50 dark:bg-gray-800 p-4 my-4"
         >
           <div class="flex items-center">
             <img
@@ -177,10 +177,11 @@
 
 
 <script setup>
-import { ref, onMounted, computed, nextTick  } from 'vue';
+import { ref, onMounted, computed, nextTick, inject, watch  } from 'vue';
 import { appService } from '../services/apps';
 import AppLogo from '../components/AppLogo.vue';
 import ButtonTextTransition from '../components/ButtonTextTransition.vue';
+
 
 const loading = ref(true);
 const error = ref(null);
@@ -194,6 +195,14 @@ const requestAccessPanel = ref(null);
 const toast = useToast();
 const appsToRequest = computed(() => {
   return allApps.value.filter(app => !app.hasAccess);
+});
+
+const reloadTrigger = inject('reloadTrigger', ref(0));
+watch(reloadTrigger, async (newValue, oldValue) => {
+  if (newValue !== oldValue) {
+    console.log('Reload triggered, refreshing apps...');
+    await loadApps();
+  }
 });
 
 onMounted(() => {
@@ -307,7 +316,6 @@ async function requestAccess(appId) {
 }
 
 function handleLogoError(event, app) {
-  console.warn(`Failed to load logo for app ${app.id}`, event);
   // Remove the logo URL to fall back to AppLogo component
   app.logo = null;
 }

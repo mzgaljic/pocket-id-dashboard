@@ -60,5 +60,17 @@ export const appService = {
       console.error('Error requesting access:', error);
       throw error;
     }
+  },
+
+  async clearCache() {
+    try {
+      console.log('Clearing server cache...');
+      const response = await api.post(`${API_URL}/clear-cache`);
+      console.log('Cache cleared successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      throw error;
+    }
   }
 };

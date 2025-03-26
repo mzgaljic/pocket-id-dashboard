@@ -80,7 +80,7 @@ async function generateAuthUrl(req) {
     // Build the authorization URL using the proper API
     const parameters = {
         redirect_uri: process.env.OIDC_REDIRECT_URI,
-        scope: 'openid profile email',
+        scope: 'openid profile email groups',
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         state: state

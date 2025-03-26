@@ -21,14 +21,14 @@ router.get('/login', async (req, res) => {
 router.get('/callback', async (req, res) => {
     try {
         logger.info('Callback route accessed');
-
         if (!req.session.codeVerifier) {
             logger.error('No code verifier in session - session may have been lost');
             return res.status(400).send('Authentication failed: Session lost or expired. Please try again.');
         }
-
         try {
             const { tokenSet, userinfo } = await oidcService.handleCallback(req);
+
+            const adminGroupName = process.env.ADMIN_GROUP_NAME;
 
             // Extract user information
             req.session.user = {
@@ -36,13 +36,15 @@ router.get('/callback', async (req, res) => {
                 name: userinfo.name || `${userinfo.given_name || ''} ${userinfo.family_name || ''}`.trim() || userinfo.sub,
                 email: userinfo.email,
                 groups: userinfo.groups || [],
-                picture: userinfo.picture
+                picture: userinfo.picture,
+                isAdmin: adminGroupName ? (Array.isArray(userinfo.groups) && userinfo.groups.includes(adminGroupName)) : false
             };
 
             logger.info('User authenticated successfully', {
                 userId: req.session.user.id,
                 email: req.session.user.email,
-                groupCount: req.session.user.groups.length
+                groupCount: req.session.user.groups.length,
+                isAdmin: req.session.user.isAdmin
             });
 
             // Redirect to the dashboard
@@ -84,21 +86,23 @@ router.get('/user', (req, res) => {
     const hasSession = !!req.session.user;
     logger.debug('User route accessed', {
         hasSession,
-        userId: req.session.user?.id
+        userId: req.session.user?.id,
+        isAdmin: req.session.user?.isAdmin
     });
-
     if (!hasSession) {
         logger.debug('No user session found, returning 401');
         return res.status(401).json({ error: 'Unauthorized' });
     }
-
     res.json(req.session.user);
 });
 
 // Check auth status - for client-side auth checks
 router.get('/status', (req, res) => {
     const hasSession = !!req.session.user;
-    logger.debug('Status route accessed', { hasSession });
+    logger.debug('Status route accessed', {
+        hasSession,
+        isAdmin: req.session.user?.isAdmin
+    });
 
     let oidcInitialized = false;
     try {
