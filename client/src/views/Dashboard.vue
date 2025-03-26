@@ -68,7 +68,7 @@
           <h3 class="text-lg font-semibold mb-1">{{ app.name }}</h3>
           <!-- Fixed height description with truncation -->
           <div class="h-10 w-full mb-4">
-            <p class="text-gray-500 dark:text-gray-400 text-center text-4 line-clamp-2">
+            <p class="text-gray-500 dark:text-gray-300 text-center text-4 line-clamp-2">
               {{ app.description }}
             </p>
           </div>
@@ -109,7 +109,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold">Request Access to Applications</h3>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">
+            <p class="text-gray-600 dark:text-gray-300 text-sm">
               Select an application to request access
             </p>
           </div>
@@ -124,23 +124,21 @@
       </template>
       <!-- Loading state for all apps -->
       <div v-if="loading" class="py-8 text-center">
-        <UIcon name="i-heroicons-arrow-path"
-               class="text-gray-400 dark:text-gray-600 w-8 h-8 animate-spin mb-2 mx-auto"/>
+        <UIcon name="i-heroicons-arrow-path" class="text-gray-400 dark:text-gray-500 w-8 h-8 animate-spin mb-2 mx-auto"/>
         <p class="text-gray-500 dark:text-gray-400">Loading applications...</p>
       </div>
       <!-- No apps to request -->
       <div v-else-if="appsToRequest.length === 0" class="py-8 text-center">
-        <UIcon name="i-heroicons-folder-open"
-               class="text-gray-400 dark:text-gray-600 w-8 h-8 mb-2 mx-auto"/>
+        <UIcon name="i-heroicons-folder-open" class="text-gray-400 dark:text-gray-500 w-8 h-8 mb-2 mx-auto"/>
         <p class="text-gray-500 dark:text-gray-400">You already have access to all available
           applications.</p>
       </div>
       <!-- Apps list -->
-      <div v-else class="space-y-4 mt-2 p-2">
+      <div v-else class="px-3 py-4">
         <UCard
           v-for="app in appsToRequest"
           :key="app.id"
-          class="bg-gray-50 dark:bg-gray-800 p-4 mt-4"
+          class="bg-gray-50 dark:bg-gray-800 p-4"
         >
           <div class="flex items-center">
             <img
@@ -150,16 +148,12 @@
               class="w-12 h-12 object-contain mr-4 rounded-lg"
               @error="handleLogoError($event, app)"
             />
-            <AppLogo
-              v-else
-              :name="app.name"
-              class="mr-4"
-              :class="{ 'w-12 h-12': true }"
-            />
+            <AppLogo v-else :name="app.name" class="mr-4" :class="{ 'w-12 h-12': true }" />
             <div class="flex-1">
-              <h4 class="font-medium">{{ app.name }}</h4>
-              <p class="text-gray-500 dark:text-gray-400 text-sm">{{ app.description }}</p>
+              <h4 class="font-bold">{{ app.name }}</h4>
+              <p class="text-gray-600 dark:text-gray-300 text-sm">{{ app.description }}</p>
             </div>
+
             <UButton
               color="primary"
               variant="soft"

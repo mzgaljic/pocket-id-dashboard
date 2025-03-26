@@ -296,15 +296,14 @@ const logout = async () => {
                 <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
               </div>
             </template>
-            <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
-              Sign in to access your application dashboard. All your authorized
-              applications will be available in one convenient location.
+            <p class="text-center text-gray-600 dark:text-gray-300 mb-6 mt-6">
+              Sign in to access your application dashboard.
             </p>
             <template #footer>
               <UButton
                 block
                 color="gray"
-                size="lg"
+                size="xl"
                 icon="i-heroicons-arrow-right-circle"
                 @click="login"
               >
