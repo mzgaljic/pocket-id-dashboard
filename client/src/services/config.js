@@ -54,12 +54,11 @@ export const configService = {
   // Get the appropriate logo URL based on theme
   async getLogoUrl(isDark = false) {
     const config = await this.getConfig();
-    return isDark ? config.logoDark : config.logoLight;
+    return `/api/proxy/logo?light=${!isDark}`;
   },
 
   // Get the favicon URL
   async getFaviconUrl() {
-    const config = await this.getConfig();
-    return config.favicon;
+    return '/api/proxy/favicon';
   }
 };

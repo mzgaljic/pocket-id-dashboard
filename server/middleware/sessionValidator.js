@@ -10,6 +10,10 @@ function sessionValidator(req, res, next) {
         req.path.startsWith('/auth/callback') ||
         req.path === '/auth/status' ||
         req.path === '/api/config' ||
+        req.path === '/api/proxy/logo' ||
+        req.path === '/api/proxy/favicon' ||
+        req.path.startsWith('/api/proxy/app-icon/') ||
+        req.path.startsWith('/api/proxy/ios-icon/') ||
         req.path === '/' ||
         req.path.includes('.')) {
         return next();

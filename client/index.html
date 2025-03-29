@@ -1,12 +1,51 @@
 <!DOCTYPE html>
 <html lang="">
-  <head>
+<head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pocket ID Dashboard</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+
+    <!-- Favicons for light/dark modes -->
+    <link
+            rel="icon"
+            type="image/png"
+            href="/api/proxy/favicon?theme=light"
+            media="(prefers-color-scheme: light)">
+    <link
+            rel="icon"
+            type="image/png"
+            href="/api/proxy/favicon?theme=dark"
+            media="(prefers-color-scheme: dark)">
+
+    <!-- iOS icons -->
+    <link
+            rel="apple-touch-icon"
+            href="/api/proxy/ios-icon?theme=light"
+            media="(prefers-color-scheme: light)">
+    <link
+            rel="apple-touch-icon"
+            href="/api/proxy/ios-icon?theme=dark"
+            media="(prefers-color-scheme: dark)">
+
+    <!-- iOS web application meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dashboard">
+
+    <!-- iOS icons - specific names and sizes as per Apple's documentation -->
+    <link rel="apple-touch-icon" sizes="152x152" href="/api/proxy/ios-icon/152">
+    <link rel="apple-touch-icon" sizes="167x167" href="/api/proxy/ios-icon/167">
+    <link rel="apple-touch-icon" sizes="180x180" href="/api/proxy/ios-icon/180">
+
+    <!-- Theme colors -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+
+    <!-- Dynamic manifest -->
+    <link rel="manifest" href="/api/config/manifest.json">
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
 </html>

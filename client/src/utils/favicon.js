@@ -1,33 +1,34 @@
 /**
  * Set the favicon of the page
- * @param {string} url - URL of the favicon
+ * @param {string} url - Base URL of the favicon (without theme parameter)
  * @returns {boolean} - Whether the favicon was set successfully
  */
 export function setFavicon(url) {
   if (!url) return false;
 
   try {
-    // Look for existing favicon
-    let link = document.querySelector('link[rel="icon"]');
+    // Remove any existing favicon links
+    document.querySelectorAll('link[rel="icon"]').forEach(link => link.remove());
 
-    // If no favicon exists, create one
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
+    // Create light and dark mode favicons
+    const lightFavicon = document.createElement('link');
+    lightFavicon.rel = 'icon';
+    lightFavicon.href = `${url}?theme=light`;
+    lightFavicon.media = '(prefers-color-scheme: light)';
+    document.head.appendChild(lightFavicon);
 
-    // Set the href attribute to update the favicon
-    link.href = url;
+    const darkFavicon = document.createElement('link');
+    darkFavicon.rel = 'icon';
+    darkFavicon.href = `${url}?theme=dark`;
+    darkFavicon.media = '(prefers-color-scheme: dark)';
+    document.head.appendChild(darkFavicon);
 
-    // Also update apple-touch-icon for iOS devices
-    let appleLink = document.querySelector('link[rel="apple-touch-icon"]');
-    if (!appleLink) {
-      appleLink = document.createElement('link');
-      appleLink.rel = 'apple-touch-icon';
-      document.head.appendChild(appleLink);
-    }
-    appleLink.href = url;
+    // Update apple-touch-icon links
+    document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(link => {
+      const size = link.sizes?.value;
+      const theme = link.media?.includes('dark') ? 'dark' : 'light';
+      link.href = `${url}${size ? `/${size}` : ''}?theme=${theme}`;
+    });
 
     return true;
   } catch (error) {

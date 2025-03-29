@@ -55,13 +55,12 @@ onMounted(async () => {
   }
   // Apply initial theme
   applyTheme();
+
   // react to system preference change
   const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   darkModeMediaQuery.addEventListener('change', (e) => {
-    // Only update if the user hasn't explicitly set a preference
-    if (!localStorage.getItem('color-theme')) {
-      isDark.value = e.matches;
-    }
+    toggleDarkMode();
+    applyTheme();
   });
 
   // Check authentication status
@@ -282,7 +281,6 @@ const logout = async () => {
             size="lg"
             :isDark="isDark"
             class="mr-4"
-            @error="handleLogoError"
           />
           <h1 class="text-xl font-bold">{{ appTitle }}</h1>
         </div>

@@ -39,7 +39,9 @@ logger.info('Environment:', {
     OIDC_POST_LOGOUT_REDIRECT_URI: process.env.OIDC_POST_LOGOUT_REDIRECT_URI,
     POCKET_ID_BASE_URL: process.env.POCKET_ID_BASE_URL,
     APP_TITLE: process.env.APP_TITLE,
+    APP_SHORT_NAME: process.env.APP_SHORT_NAME,
     APP_SSO_PROVIDER_NAME: process.env.APP_SSO_PROVIDER_NAME,
+    CUSTOMIZE_METADATA_FILE: process.env.CUSTOMIZE_METADATA_FILE,
     LOG_LEVEL: process.env.LOG_LEVEL || 'info'
 });
 
@@ -197,6 +199,7 @@ async function startServer() {
         app.use('/api/apps', auth, appRoutes);
         app.use('/auth', require('./routes/auth'));
         app.use('/api/config', require('./routes/config'));
+        app.use('/api/proxy', require('./routes/proxy'));
 
         // Handle SPA routes - this should be after all API routes
         // In development, we'll redirect to the Vue dev server

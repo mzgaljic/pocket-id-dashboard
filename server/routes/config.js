@@ -19,4 +19,29 @@ router.get('/', (req, res) => {
     });
 });
 
+router.get('/manifest.json', (req, res) => {
+    const manifest = {
+        name: process.env.APP_TITLE || 'Pocket ID Dashboard',
+        short_name: process.env.APP_SHORT_NAME || process.env.APP_TITLE || 'App Dashboard',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#ffffff',
+        icons: [
+            {
+                src: '/api/proxy/app-icon/192',
+                sizes: '192x192',
+                type: 'image/png'
+            },
+            {
+                src: '/api/proxy/app-icon/512',
+                sizes: '512x512',
+                type: 'image/png'
+            }
+        ]
+    };
+
+    res.json(manifest);
+});
+
 module.exports = router;
