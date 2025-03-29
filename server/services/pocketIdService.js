@@ -259,16 +259,16 @@ async function getUserGroups(userId) {
  * @returns {Promise<Array>} - Array of accessible clients with details
  */
 async function getAccessibleOIDCClients(userGroups) {
-    const excludeClientId = process.env.OIDC_CLIENT_ID
+    const thisClientId = process.env.OIDC_CLIENT_ID
     try {
         // Generate a cache key based on the user's groups
-        const cacheKey = hashArray(userGroups) + (excludeClientId ? `_exclude_${excludeClientId}` : '');
+        const cacheKey = hashArray(userGroups) + (thisClientId ? `_exclude_${thisClientId}` : '');
 
         // Check cache first
         if (cache.accessibleApps[cacheKey] &&
             cache.accessibleApps[cacheKey].timestamp > Date.now() - ACCESSIBLE_APPS_CACHE_EXPIRY) {
             logger.debug('Using cached accessible apps');
-            return cache.accessibleApps[cacheKey].data;
+            return cache.accessibleApps[cacheKey].data.filter(client => !client.hiddenInUi);
         }
 
         // Get all clients
@@ -282,7 +282,7 @@ async function getAccessibleOIDCClients(userGroups) {
         // For each client, get details and check if user has access
         for (const client of clients) {
             // Skip the excluded client ID
-            if (excludeClientId && client.id === excludeClientId) {
+            if (thisClientId && client.id === thisClientId) {
                 logger.debug(`Skipping current app client: ${client.id}`);
                 continue;
             }
@@ -304,6 +304,7 @@ async function getAccessibleOIDCClients(userGroups) {
                     accessibleClients.push({
                         id: client.id,
                         name: client.name,
+                        hiddenInUi: !!enrichedMetadata?.hidden,
                         description: enrichedMetadata?.description || clientDetails.description || undefined,
                         logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                         redirectUri,
@@ -325,8 +326,9 @@ async function getAccessibleOIDCClients(userGroups) {
             timestamp: Date.now()
         };
 
-        logger.info(`Found accessible clients ${JSON.stringify({ count: accessibleClients.length })}`);
-        return accessibleClients;
+        const filtered = accessibleClients.filter(client => !client.hiddenInUi);
+        logger.info(`Found accessible clients ${JSON.stringify({ count: filtered.length })}`);
+        return filtered;
     } catch (error) {
         logger.error('Error getting accessible OIDC clients:', error);
         throw new Error(`Failed to get accessible OIDC clients: ${error.message}`);

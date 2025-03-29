@@ -5,6 +5,7 @@ const yaml = require('js-yaml');
 const logger = require('./logger');
 
 let metadataCache = null;
+let loggedMetadataFileMissing = false;
 
 /**
  * Loads OIDC client metadata from a YAML file
@@ -15,7 +16,7 @@ function loadOidcClientMetadata() {
         return metadataCache;
     }
 
-    const metadataFilePath = process.env.OIDC_CLIENTS_METADATA_FILE;
+    const metadataFilePath = process.env.CUSTOMIZE_METADATA_FILE;
     if (!metadataFilePath) {
         logger.debug('No OIDC clients metadata file specified');
         return null;
@@ -24,8 +25,9 @@ function loadOidcClientMetadata() {
     try {
         const resolvedPath = path.resolve(process.cwd(), metadataFilePath);
 
-        if (!fs.existsSync(resolvedPath)) {
+        if (!loggedMetadataFileMissing && !fs.existsSync(resolvedPath)) {
             logger.warn(`OIDC clients metadata file not found: ${resolvedPath}`);
+            loggedMetadataFileMissing = true;
             return null;
         }
 
@@ -60,7 +62,9 @@ function findClientMetadata(client) {
     for (const [key, clientMetadata] of Object.entries(metadata.oidcClients)) {
         if (!clientMetadata.filter) continue;
 
-        const { field, value } = clientMetadata.filter;
+        const filter = clientMetadata.filter;
+
+        const { field, value } = parseCustomizeFilter(filter);
 
         if (!field || !value) continue;
 
@@ -93,11 +97,27 @@ function findClientMetadata(client) {
     return null;
 }
 
+function parseCustomizeFilter(filter) {
+    const matchesOidcClientIdFormat = (str) => {
+        const pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return pattern.test(str);
+    }
+
+    if (!filter) {
+        return { field: null, value: null };
+    } else if (typeof filter === "string") {
+        const field = matchesOidcClientIdFormat(filter) ? 'id' : 'name';
+        return { field, value: filter};
+    } else {
+        return { field: filter.field, value: filter.value };
+    }
+}
 /**
  * Clear the metadata cache
  */
 function clearMetadataCache() {
     metadataCache = null;
+    loggedMetadataFileMissing = false;
     logger.debug('Cleared OIDC clients metadata cache');
 }
 

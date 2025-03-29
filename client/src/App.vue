@@ -338,9 +338,8 @@ const logout = async () => {
             </template>
             <p>{{ authError || 'There was a problem with authentication. Please try again.' }}</p>
             <template #footer>
-              <div class="flex justify-between">
+              <div class="flex">
                 <UButton @click="retryAuthCheck" color="gray" variant="soft">Retry</UButton>
-                <UButton @click="router.push('/')" color="gray" variant="soft">Go to Home</UButton>
               </div>
             </template>
           </UCard>
