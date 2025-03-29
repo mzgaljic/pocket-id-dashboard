@@ -2,11 +2,25 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const { LRUCache } = require('lru-cache');
 const emailService = require('../services/emailService');
 const pocketIdService = require('../services/pocketIdService');
 const accessRequestRepository = require('../repositories/accessRequestRepository');
 const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
+
+const logoCache = new LRUCache({
+    max: 100, // count
+    maxSize: 5 * 1024 * 1024, // 5MB
+    ttl: 60 * 60 * 1000, // 60 minutes
+
+    // calculate approx size in bytes
+    sizeCalculation: (value, key) => {
+        const imageSize = value.data.length;
+        const metadataSize = (value.contentType.length + key.length);
+        return imageSize + metadataSize;
+    }
+});
 
 // Get all apps the user has access to
 router.get('/', async (req, res) => {
@@ -131,17 +145,46 @@ router.get('/:id/logo', async (req, res) => {
         const { id } = req.params;
         logger.debug('Fetching logo for app', { appId: id });
 
-        // Get the logo for the specified client
-        const logoData = await pocketIdService.getOIDCClientLogo(id);
+        // Check cache first
+        const cached = logoCache.get(id);
+        if (cached) {
+            logger.debug('Serving cached logo for app', {
+                appId: id,
+                size: cached.data.length,
+                contentType: cached.contentType
+            });
+            res.set('Content-Type', cached.contentType);
+            res.set('Cache-Control', 'public, max-age=3600'); // 60 minutes
+            return res.send(cached.data);
+        }
 
-        // Set appropriate content type
-        res.set('Content-Type', 'image/png'); // Adjust if needed based on actual logo format
+        // If not in cache, fetch from service
+        const { data: logoData, contentType } = await pocketIdService.getOIDCClientLogo(id);
+
+        // Store in cache
+        logoCache.set(id, {
+            contentType: contentType || 'image/png'
+        });
+
+        // Log cache statistics
+        logger.debug('Cache statistics', {
+            size: logoCache.size,
+            itemCount: logoCache.size,
+            maxSize: logoCache.maxSize,
+            remaining: logoCache.maxSize - logoCache.size
+        });
+
+        // Set content type from response
+        res.set('Content-Type', contentType || 'image/png');
+        res.set('Cache-Control', 'public, max-age=3600'); // 60 minutes
         res.send(logoData);
     } catch (error) {
         logger.error(`Error fetching logo for app ${req.params.id}:`, error);
-        res.status(404).sendFile(path.join(__dirname, '../assets/default-logo.png')); // Provide a default logo
+        res.set('Content-Type', 'image/png');
+        res.status(404).sendFile(path.join(__dirname, '../assets/default-logo.png'));
     }
 });
+
 
 // Clear the cache
 router.post('/clear-cache', auth, async (req, res) => {
@@ -176,6 +219,7 @@ router.post('/clear-cache', auth, async (req, res) => {
 
         logger.info('Admin verification successful, clearing cache', { userId });
         pocketIdService.clearCache();
+        logoCache.clear();
 
         // Update session
         req.session.user.groups = groupNames;

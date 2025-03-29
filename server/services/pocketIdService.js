@@ -187,13 +187,20 @@ async function getOIDCClient(clientId) {
 /**
  * Get the logo for a specific OIDC client
  * @param {string} clientId - The client ID
- * @returns {Promise<Buffer>} - Logo image data
+ * @returns {Promise<object>} - Both the data and content type
  */
 async function getOIDCClientLogo(clientId) {
     try {
         logger.debug('Fetching logo for OIDC client', {clientId});
-        // For binary data, we'll get a Buffer back
-        return await makeApiRequest(`/oidc/clients/${clientId}/logo`);
+        // For binary data, we'll get a Buffer back along with headers
+        const response = await makeApiRequest(`/oidc/clients/${clientId}/logo`, {
+            responseType: 'arraybuffer'
+        });
+
+        return {
+            data: response.data,
+            contentType: response.headers['content-type']
+        };
     } catch (error) {
         logger.error(`Error fetching logo for OIDC client ${clientId}:`, error);
         throw new Error(`Failed to fetch logo for OIDC client ${clientId}: ${error.message}`);
@@ -355,7 +362,6 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
             return cache.accessibleApps[cacheKey].data;
         }
 
-        logger.info('Fetching all clients with access information');
         const { data: clients } = await listOIDCClients();
 
         const allClients = [];
