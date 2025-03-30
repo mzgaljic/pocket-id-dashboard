@@ -2,7 +2,7 @@
 <template>
   <div>
     <!-- Header with title and back button -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex justify-between items-center mb-6 max-w-[800px] mx-auto">
       <h1 class="text-2xl font-bold">Access Request Management</h1>
       <UButton
         color="gray"
@@ -15,7 +15,7 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="py-12">
+    <div v-if="loading" class="py-12 max-w-[1000px] mx-auto">
       <div class="flex flex-col items-center justify-center py-12">
         <UIcon name="i-heroicons-arrow-path"
                class="text-gray-400 dark:text-gray-600 w-12 h-12 animate-spin mb-4"/>
@@ -24,7 +24,7 @@
     </div>
 
     <!-- Error state -->
-    <UCard v-else-if="error" class="my-6 border-red-200 dark:border-red-800">
+    <UCard v-else-if="error" class="my-6 border-red-200 dark:border-red-800 max-w-[1000px] mx-auto">
       <div class="flex flex-col items-center justify-center py-8">
         <UIcon name="i-heroicons-exclamation-circle" class="text-red-500 w-12 h-12 mb-4"/>
         <h3 class="text-xl font-semibold mb-2">Error Loading Requests</h3>
@@ -36,7 +36,7 @@
     </UCard>
 
     <!-- No requests state -->
-    <UCard v-else-if="requests.length === 0" class="my-6">
+    <UCard v-else-if="requests.length === 0" class="my-6 max-w-[1000px] mx-auto">
       <div class="flex flex-col items-center justify-center py-12">
         <UIcon name="i-heroicons-check-circle"
                class="text-green-500 w-16 h-16 mb-4"/>
@@ -48,17 +48,20 @@
     </UCard>
 
     <!-- Requests list -->
-    <div v-else>
+    <div v-else class="max-w-[1000px] mx-auto">
       <UCard v-for="request in requests" :key="request.id" class="mb-6">
         <div class="p-4">
           <div class="flex justify-between items-start mb-4">
             <div>
-              <h3 class="text-lg font-semibold">
+              <h3 class="text-lg font-semibold flex items-center">
                 Request for {{ request.app?.name || 'Unknown App' }}
+                <div class="pl-5 mb-1">
+                  <UBadge v-if="request.userId === currentUserId" color="info" variant="subtle">
+                    My Request
+                  </UBadge>
+                </div>
               </h3>
-              <UBadge v-if="request.userId === currentUserId" color="info" variant="subtle">
-                My Request
-              </UBadge>
+
               <!-- User information section with visual indicator for missing data -->
               <div class="flex items-center mt-2 mb-1">
                 <UAvatar
@@ -92,6 +95,11 @@
             <UBadge
               :color="getStatusColor(request.status)"
               class="text-xs uppercase"
+              :class="{
+                'bg-yellow-500 dark:bg-yellow-600 text-white': request.status === 'pending',
+                'bg-green-500 dark:bg-green-600 text-white': request.status === 'approved',
+                'bg-red-500 dark:bg-red-600 text-white': request.status === 'rejected'
+              }"
             >
               {{ request.status }}
             </UBadge>
@@ -102,46 +110,53 @@
           </p>
 
           <div v-if="request.status === 'pending'" class="mt-6">
-            <div v-if="request.app?.allowedUserGroups?.length" class="mb-4">
-              <h4 class="font-medium mb-2">Select groups to add user to:</h4>
-              <USelectMenu
-                v-model="selectedGroups[request.id]"
-                multiple
-                :items="getGroupItems(request.app.allowedUserGroups)"
-                return-value="value"
-                placeholder="Select groups..."
-                size="lg"
-                :style="{ minWidth: calculateSelectMenuMinWidth(request.app.allowedUserGroups) + 'px' }"
-                :ui="{
+            <div class="flex">
+              <!-- User Group selection -->
+              <div>
+                <div v-if="request.app?.allowedUserGroups?.length">
+                  <h4 class="font-medium mb-2">Select groups to add user to:</h4>
+                  <USelectMenu
+                    v-model="selectedGroups[request.id]"
+                    multiple
+                    :items="getGroupItems(request.app.allowedUserGroups)"
+                    return-value="value"
+                    placeholder="Select groups..."
+                    size="lg"
+                    :style="{ minWidth: calculateSelectMenuMinWidth(request.app.allowedUserGroups) + 'px' }"
+                    :ui="{
                   icon: { trailing: { name: 'i-heroicons-chevron-down' } }
                 }"
-              />
-              <p class="text-xs text-gray-500 mt-1">
-                {{ selectedGroups[request.id]?.length || 0 }} group(s) selected
-              </p>
-            </div>
-            <div v-else class="text-amber-600 dark:text-amber-400 mb-4">
-              No allowed groups found for this application.
-            </div>
+                  />
+                  <p class="text-xs text-gray-500 mt-1">
+                    {{ selectedGroups[request.id]?.length || 0 }} group(s) selected
+                  </p>
+                </div>
+                <div v-else class="text-amber-600 dark:text-amber-400 mb-4">
+                  No allowed groups found for this application.
+                </div>
+              </div>
 
-            <div class="flex space-x-4 mt-4">
-              <UButton
-                color="green"
-                :loading="processingRequestId === request.id && processingAction === 'approve'"
-                :disabled="isProcessing || !hasSelectedGroups(request.id)"
-                @click="approveRequest(request)"
-              >
-                Approve
-              </UButton>
-              <UButton
-                color="red"
-                variant="soft"
-                :loading="processingRequestId === request.id && processingAction === 'reject'"
-                :disabled="isProcessing"
-                @click="rejectRequest(request)"
-              >
-                Reject
-              </UButton>
+              <!-- Approve / Reject buttons -->
+              <div class="space-x-4 ml-15 mt-8">
+                <UButton
+                  color="success"
+                  :loading="processingRequestId === request.id && processingAction === 'approve'"
+                  :disabled="isProcessing || !hasSelectedGroups(request.id)"
+                  @click="approveRequest(request)"
+                  class="bg-green-500 dark:bg-green-600 text-white"
+                >
+                  Approve
+                </UButton>
+                <UButton
+                  color="error"
+                  variant="soft"
+                  :loading="processingRequestId === request.id && processingAction === 'reject'"
+                  :disabled="isProcessing"
+                  @click="rejectRequest(request)"
+                >
+                  Reject
+                </UButton>
+              </div>
             </div>
           </div>
         </div>

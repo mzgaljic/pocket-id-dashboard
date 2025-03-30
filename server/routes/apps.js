@@ -75,9 +75,44 @@ router.post('/request-access', async (req, res) => {
 
         // Get app details to include in the notification
         let appName = 'Unknown Application';
+        let userHasAccess = false;
+
         try {
             const appDetails = await pocketIdService.getOIDCClient(appId);
             appName = appDetails.name || appName;
+
+            // Check if user actually has access to this app
+            const userGroups = await pocketIdService.getUserGroups(user.id);
+            const userGroupNames = userGroups.map(group => group.name);
+            const allowedGroups = appDetails.allowedUserGroups.map(group => group.name);
+
+            // User has access if:
+            // 1. The app has no allowed groups (public app)
+            // 2. User belongs to at least one of the allowed groups
+            userHasAccess = allowedGroups.length === 0 ||
+                allowedGroups.some(group => userGroupNames.includes(group));
+
+            logger.debug('Access check for request', {
+                userId: user.id,
+                appId,
+                hasAccess: userHasAccess,
+                userGroups: userGroupNames.length,
+                allowedGroups: allowedGroups.length
+            });
+
+            // If user already has access, don't create a request
+            if (userHasAccess) {
+                logger.info('User already has access to app, skipping request', {
+                    userId: user.id,
+                    appId
+                });
+
+                return res.json({
+                    success: false,
+                    message: 'You already have access to this application',
+                    alreadyHasAccess: true
+                });
+            }
         } catch (error) {
             logger.warn(`Could not fetch app details for ${appId}`, { error: error.message });
         }

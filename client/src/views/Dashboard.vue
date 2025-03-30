@@ -139,6 +139,10 @@
           v-for="app in appsToRequest"
           :key="app.id"
           class="bg-gray-50 dark:bg-gray-800 p-4 my-4"
+          :class="{
+            'border-l-4 border-red-500': app.requestStatus === 'rejected',
+            'border-l-4 border-amber-500': app.requestStatus === 'approved' && !app.hasAccess
+          }"
         >
           <div class="flex items-center">
             <img
@@ -152,6 +156,13 @@
             <div class="flex-1">
               <h4 class="font-bold">{{ app.name }}</h4>
               <p class="text-gray-600 dark:text-gray-300 text-sm">{{ app.description }}</p>
+
+              <p v-if="app.requestStatus === 'rejected'" class="text-red-600 dark:text-red-400 text-xs mt-1">
+                Your previous request was rejected. You can request access again.
+              </p>
+              <p v-if="app.requestStatus === 'approved' && !app.hasAccess" class="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                Your access appears to have been revoked. You can request access again.
+              </p>
             </div>
 
             <UButton
@@ -159,9 +170,9 @@
               variant="soft"
               size="sm"
               @click.stop="requestAccess(app.id)"
-              :disabled="app.requested && app.requestStatus === 'pending' || requestingAccess"
+              :disabled="(app.requested && app.requestStatus === 'pending') || requestingAccess"
               :loading="requestingAccessFor === app.id"
-              :icon="app.requestStatus === 'rejected' ? 'i-heroicons-arrow-path' : (app.requested ? 'i-heroicons-check' : 'i-heroicons-key')"
+              :icon="getRequestButtonIcon(app)"
               class="ml-4 cursor-pointer"
             >
               <ButtonTextTransition
@@ -199,7 +210,7 @@ const appsToRequest = computed(() => {
   // Filter out apps that:
   // 1. User already has access to
   // 2. Are public (available to all users)
-  // 3. Have pending requests (but allow rejected requests)
+  // 3. Have pending requests
   return allApps.value.filter(app => {
     // User doesn't have access
     if (app.hasAccess) return false;
@@ -207,13 +218,7 @@ const appsToRequest = computed(() => {
     // App is public (available to everyone)
     if (app.isPublic) return false;
 
-    // Check if there's a request and its status
-    if (app.requested && app.requestStatus === 'pending') {
-      // Don't show pending requests
-      return false;
-    }
-
-    // Show apps with no requests or rejected requests
+    // Show all other apps (including those with approved requests but no access)
     return true;
   });
 });
@@ -292,15 +297,36 @@ async function requestAccess(appId) {
     requestingAccess.value = true;
     requestingAccessFor.value = appId;
 
-    // Get the app to check if it's a re-request
+    // Get the app to check what type of request this is
     const app = allApps.value.find(a => a.id === appId);
     const isReRequest = app?.requestStatus === 'rejected';
+    const isAccessRevoked = app?.requestStatus === 'approved' && !app.hasAccess;
 
     // Get the updated request data from the service
     const response = await appService.requestAccess(appId);
 
-    // Add a slight delay to make the animation more noticeable
+    // slight delay for animation
     await new Promise(resolve => setTimeout(resolve, 300));
+
+    // If user already has access, show a message and refresh the app list
+    if (response.alreadyHasAccess) {
+      toast.add({
+        title: 'Access Already Granted',
+        description: 'You already have access to this app. Try refreshing to see updates.',
+        icon: 'i-heroicons-information-circle',
+        color: 'info',
+        timeout: 5000,
+        actions: [
+          {
+            label: 'Refresh Apps',
+            variant: 'outline',
+            onClick: () => loadApps()
+          }
+        ]
+      });
+      await loadApps(); // Reload apps to update the UI
+      return;
+    }
 
     // Update the local state for allApps array
     const appIndex = allApps.value.findIndex(app => app.id === appId);
@@ -335,11 +361,21 @@ async function requestAccess(appId) {
         ]
       });
     } else {
+      // Determine the appropriate message
+      let title = 'Access Requested';
+      let description = 'Your request has been submitted to the administrator.';
+
+      if (isReRequest) {
+        title = 'Access Re-Requested';
+        description = 'Your request has been resubmitted to the administrator.';
+      } else if (isAccessRevoked) {
+        title = 'Access Re-Requested';
+        description = 'Your request for renewed access has been submitted to the administrator.';
+      }
+
       toast.add({
-        title: isReRequest ? 'Access Re-Requested' : 'Access Requested',
-        description: isReRequest
-          ? 'Your request has been resubmitted to the administrator.'
-          : 'Your request has been submitted to the administrator.',
+        title,
+        description,
         icon: 'i-heroicons-check-circle',
         color: 'success',
         timeout: 5000
@@ -366,12 +402,31 @@ function handleLogoError(event, app) {
 }
 
 function getRequestButtonText(app) {
+  // If user doesn't have access but has an approved request,
+  // they likely had access revoked in Pocket ID
+  if (app.requestStatus === 'approved' && !app.hasAccess) {
+    return 'Request Again';
+  }
+
   if (app.requestStatus === 'rejected') {
     return 'Request Again';
   }
-  if (app.requested) {
+
+  if (app.requested && app.requestStatus === 'pending') {
     return 'Requested';
   }
   return 'Request Access';
+}
+function getRequestButtonIcon(app) {
+  if ((app.requestStatus === 'approved' && !app.hasAccess) ||
+    app.requestStatus === 'rejected') {
+    return 'i-heroicons-arrow-path';
+  }
+
+  if (app.requested && app.requestStatus === 'pending') {
+    return 'i-heroicons-check';
+  }
+
+  return 'i-heroicons-key';
 }
 </script>

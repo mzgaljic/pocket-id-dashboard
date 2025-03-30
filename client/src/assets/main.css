@@ -148,6 +148,48 @@ div.p-4.sm\:p-6 {
   overflow: hidden;
 }
 
+/* Fix UDropdownMenu transparency bug */
+div[role="menu"] {
+  background-color: white !important;
+}
+
+.dark div[role="menu"] {
+  background-color: #1f2937 !important; /* Dark mode background color */
+}
+
+/* make sure hover works */
+div[role="menu"] [role="menuitem"]:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.dark div[role="menu"] [role="menuitem"]:hover {
+  background-color: #374151 !important;
+}
+
+/* Fix USelectMenu in dark mode */
+.dark [data-floating-ui-portal] > div,
+.dark [data-state="open"] > div {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+.dark .ui-dropdown-menu {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+.dark [data-state="open"] input {
+  background-color: #111827 !important;
+  color: white !important;
+}
+.dark [data-state="open"] [role="option"] {
+  background-color: #1f2937 !important;
+}
+.dark [data-state="open"] [role="option"][data-state="checked"] {
+  background-color: #374151 !important;
+}
+
+
+
+
 /* Custom responsive styles */
 @media (max-width: 768px) {
   .app-grid {
