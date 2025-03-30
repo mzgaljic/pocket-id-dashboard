@@ -93,8 +93,8 @@ async function sendEmail(options, retryCount = 0) {
     try {
         // Prepare email data
         const mailOptions = {
-            from: `"${process.env.SMTP_NAME || 'Pocket-ID Dashboard'}" <${process.env.SMTP_FROM_EMAIL || 'dashboard@example.com'}>`,
-            replyTo: process.env.SMTP_REPLY_EMAIL || process.env.SMTP_FROM_EMAIL || 'dashboard@example.com',
+            from: `"${process.env.SMTP_NAME || 'Pocket-ID Dashboard'}" <${process.env.SMTP_FROM_EMAIL || ''}>`,
+            replyTo: options.replyTo || process.env.SMTP_REPLY_EMAIL || process.env.SMTP_FROM_EMAIL || '',
             to: options.to,
             subject: options.subject,
             text: options.text,
@@ -153,6 +153,13 @@ async function sendAccessRequestNotification(requestDetails) {
 
     const { appId, appName, userId, userEmail, userName, timestamp } = requestDetails;
 
+    const localTimestamp = new Date(timestamp).toLocaleString('en-US', {
+        timeZone: process.env.TZ || 'UTC',
+        dateStyle: 'full',
+        timeStyle: 'long'
+    });
+    const pocketIdUrl = process.env.POCKET_ID_BASE_URL;
+
     const subject = `Access Request: ${userName} requested access to ${appName}`;
 
     const text = `
@@ -162,9 +169,11 @@ User: ${userName} (${userEmail})
 User ID: ${userId}
 Application: ${appName}
 Application ID: ${appId}
-Requested at: ${new Date(timestamp).toLocaleString()}
+Requested at: ${localTimestamp} ${process.env.TZ ? `(${process.env.TZ})` : '(UTC)'}
 
 Please review this request and grant access if appropriate.
+
+${pocketIdUrl}
   `;
 
     const html = `
@@ -192,10 +201,12 @@ Please review this request and grant access if appropriate.
   </tr>
 </table>
 <p>Please review this request and grant access if appropriate.</p>
+<p><a href="${pocketIdUrl}">${pocketIdUrl}</a></p>
   `;
 
     return sendEmail({
         to: process.env.ADMIN_EMAIL,
+        replyTo: userEmail,
         subject,
         text,
         html
