@@ -158,7 +158,12 @@ async function sendAccessRequestNotification(requestDetails) {
         dateStyle: 'full',
         timeStyle: 'long'
     });
-    const pocketIdUrl = process.env.POCKET_ID_BASE_URL;
+    let reviewAccessUrl = process.env.CLIENT_ORIGIN;
+    if (reviewAccessUrl) {
+        reviewAccessUrl = `${reviewAccessUrl}/admin/requests`;
+    } else {
+        reviewAccessUrl = process.env.POCKET_ID_BASE_URL;
+    }
 
     const subject = `Access Request: ${userName} requested access to ${appName}`;
 
@@ -173,7 +178,7 @@ Requested at: ${localTimestamp} ${process.env.TZ ? `(${process.env.TZ})` : '(UTC
 
 Please review this request and grant access if appropriate.
 
-${pocketIdUrl}
+${reviewAccessUrl}
   `;
 
     const html = `
@@ -201,7 +206,7 @@ ${pocketIdUrl}
   </tr>
 </table>
 <p>Please review this request and grant access if appropriate.</p>
-<p><a href="${pocketIdUrl}">${pocketIdUrl}</a></p>
+<p><a href="${reviewAccessUrl}">${reviewAccessUrl}</a></p>
   `;
 
     return sendEmail({
