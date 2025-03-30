@@ -26,8 +26,13 @@ class AccessRequestRepository {
             // Handle the case where the request already exists
             const existingRequest = await this.getRequestByUserAndApp(userId, appId);
             if (existingRequest) {
-                logger.debug('Request already exists, updating', { id: existingRequest.id });
-                // Update the existing request
+                logger.debug('Request already exists, updating', {
+                    id: existingRequest.id,
+                    currentStatus: existingRequest.status
+                });
+
+                // If the existing request is rejected, we'll allow creating a new request
+                // If it's pending or approved, just update it
                 await db('access_requests')
                     .where('id', existingRequest.id)
                     .update({
@@ -37,29 +42,8 @@ class AccessRequestRepository {
                     });
                 return this.getRequestById(existingRequest.id);
             }
-
             // Insert new request
-            const result = await db('access_requests')
-                .insert(dbRecord)
-                .returning('id');
-
-            // Handle different return formats
-            let id;
-            if (Array.isArray(result) && result.length > 0) {
-                // For SQLite or PostgreSQL returning an array
-                id = typeof result[0] === 'object' ? result[0].id : result[0];
-            } else if (typeof result === 'object' && result.id) {
-                // For PostgreSQL potentially returning an object
-                id = result.id;
-            } else {
-                // Fallback - get the last inserted ID
-                const lastInsert = await db('access_requests')
-                    .where({ user_id: userId, app_id: appId })
-                    .orderBy('id', 'desc')
-                    .first();
-                id = lastInsert.id;
-            }
-
+            const [id] = await db('access_requests').insert(dbRecord);
             return this.getRequestById(id);
         } catch (error) {
             logger.error('Error creating access request:', error);

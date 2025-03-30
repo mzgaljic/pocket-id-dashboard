@@ -159,13 +159,13 @@
               variant="soft"
               size="sm"
               @click.stop="requestAccess(app.id)"
-              :disabled="app.requested || requestingAccess"
+              :disabled="app.requested && app.requestStatus === 'pending' || requestingAccess"
               :loading="requestingAccessFor === app.id"
-              :icon="app.requested ? 'i-heroicons-check' : 'i-heroicons-key'"
+              :icon="app.requestStatus === 'rejected' ? 'i-heroicons-arrow-path' : (app.requested ? 'i-heroicons-check' : 'i-heroicons-key')"
               class="ml-4 cursor-pointer"
             >
               <ButtonTextTransition
-                :text="app.requested ? 'Requested' : 'Request Access'"
+                :text="getRequestButtonText(app)"
               />
             </UButton>
           </div>
@@ -194,11 +194,28 @@ const requestingAccess = ref(false);
 const requestingAccessFor = ref(null);
 const requestAccessPanel = ref(null);
 const toast = useToast();
+
 const appsToRequest = computed(() => {
   // Filter out apps that:
   // 1. User already has access to
   // 2. Are public (available to all users)
-  return allApps.value.filter(app => !app.hasAccess && !app.isPublic);
+  // 3. Have pending requests (but allow rejected requests)
+  return allApps.value.filter(app => {
+    // User doesn't have access
+    if (app.hasAccess) return false;
+
+    // App is public (available to everyone)
+    if (app.isPublic) return false;
+
+    // Check if there's a request and its status
+    if (app.requested && app.requestStatus === 'pending') {
+      // Don't show pending requests
+      return false;
+    }
+
+    // Show apps with no requests or rejected requests
+    return true;
+  });
 });
 
 const reloadTrigger = inject('reloadTrigger', ref(0));
@@ -275,6 +292,10 @@ async function requestAccess(appId) {
     requestingAccess.value = true;
     requestingAccessFor.value = appId;
 
+    // Get the app to check if it's a re-request
+    const app = allApps.value.find(a => a.id === appId);
+    const isReRequest = app?.requestStatus === 'rejected';
+
     // Get the updated request data from the service
     const response = await appService.requestAccess(appId);
 
@@ -301,7 +322,7 @@ async function requestAccess(appId) {
     if (response.isAdminRequest) {
       toast.add({
         title: 'Admin Self-Request',
-        description: 'Request submitted! As an admin, you can approve your own request on the Manage Requests page.',
+        description: 'As an admin, you can approve your own request on the Manage Requests page.',
         icon: 'i-heroicons-information-circle',
         color: 'info',
         timeout: 8000,
@@ -315,8 +336,10 @@ async function requestAccess(appId) {
       });
     } else {
       toast.add({
-        title: 'Access Requested',
-        description: 'Your request has been submitted to the administrator.',
+        title: isReRequest ? 'Access Re-Requested' : 'Access Requested',
+        description: isReRequest
+          ? 'Your request has been resubmitted to the administrator.'
+          : 'Your request has been submitted to the administrator.',
         icon: 'i-heroicons-check-circle',
         color: 'success',
         timeout: 5000
@@ -340,5 +363,15 @@ async function requestAccess(appId) {
 function handleLogoError(event, app) {
   // Remove the logo URL to fall back to AppLogo component
   app.logo = null;
+}
+
+function getRequestButtonText(app) {
+  if (app.requestStatus === 'rejected') {
+    return 'Request Again';
+  }
+  if (app.requested) {
+    return 'Requested';
+  }
+  return 'Request Access';
 }
 </script>
