@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
 
 const logoCache = new LRUCache({
     max: 100, // count
-    maxSize: 5 * 1024 * 1024, // 5MB
+    maxSize: 10 * 1024 * 1024, // 10MB
     ttl: 60 * 60 * 1000, // 60 minutes
 
     // calculate approx size in bytes
