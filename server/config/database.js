@@ -66,8 +66,10 @@ else if (dbConfig.client === 'sqlite3') {
     logger.info('Configured PostgreSQL connection', {
         host: dbConfig.connection.host,
         port: dbConfig.connection.port,
+        ssl: !!dbConfig.connection.ssl,
         database: dbConfig.connection.database,
-        ssl: !!dbConfig.connection.ssl
+        user: dbConfig.connection.user ? '[SET]' : '[NOT SET]',
+        password: dbConfig.connection.password ? '[SET]' : '[NOT SET]'
     });
 }
 

@@ -48,6 +48,7 @@ function initializeEmailService() {
                 port: config.port,
                 secure: config.secure,
                 username: config.auth.user ? '[SET]' : '[NOT SET]',
+                password: config.auth.pass ? '[SET]' : '[NOT SET',
                 tlsConfig: config.tls ? '[SET]' : '[NOT SET]'
             });
 
