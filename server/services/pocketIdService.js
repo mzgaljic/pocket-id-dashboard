@@ -81,7 +81,6 @@ function makeApiRequest(path, options = {}) {
 
         const req = https.request(requestOptions, (res) => {
             let data = Buffer.from([]);
-
             res.on('data', (chunk) => {
                 data = Buffer.concat([data, chunk]);
             });
@@ -101,12 +100,25 @@ function makeApiRequest(path, options = {}) {
                         reject(new Error(`Failed to parse API response: ${error.message}`));
                     }
                 } else {
+                    const responseText = data.toString();
+                    let errorMessage;
+                    try {
+                        // Try to parse error as JSON
+                        const errorJson = JSON.parse(responseText);
+                        errorMessage = `Request failed with status code ${res.statusCode}: ${JSON.stringify(errorJson)}`;
+                    } catch (e) {
+                        // If not JSON, use as plain text
+                        errorMessage = `Request failed with status code ${res.statusCode}: ${responseText}`;
+                    }
+
                     logger.error(`API request failed with status ${res.statusCode}`, {
                         path,
                         statusCode: res.statusCode,
-                        statusMessage: res.statusMessage
+                        statusMessage: res.statusMessage,
+                        response: responseText
                     });
-                    reject(new Error(`Request failed with status code ${res.statusCode}`));
+
+                    reject(new Error(errorMessage));
                 }
             });
         });
@@ -117,10 +129,15 @@ function makeApiRequest(path, options = {}) {
         });
 
         // Add timeout
-        req.setTimeout(5000, () => {
+        req.setTimeout(10000, () => {  // Increased timeout to 10 seconds
             req.destroy();
             reject(new Error('Request timeout'));
         });
+
+        // Add request body if provided
+        if (options.body) {
+            req.write(options.body);
+        }
 
         req.end();
     });
@@ -261,6 +278,111 @@ async function getUserGroups(userId) {
 }
 
 /**
+ * Update the groups a user belongs to
+ * @param {string} userId - The user ID
+ * @param {string[]} groupIds - Array of group IDs the user should belong to
+ * @param {number} retryCount - number of times to retry
+ * @returns {Promise<Object>} - Updated user object
+ */
+async function updateUserGroups(userId, groupIds, retryCount = 0) {
+    try {
+        logger.debug('Updating groups for user', { userId, groupCount: groupIds.length });
+
+        // Validate input
+        if (!Array.isArray(groupIds)) {
+            logger.error('Invalid groupIds parameter, expected array', { groupIds });
+            throw new Error('groupIds must be an array of strings');
+        }
+
+        // Ensure all group IDs are strings
+        const cleanGroupIds = groupIds.map(id => {
+            if (typeof id === 'object' && id.value) {
+                logger.warn('Received object instead of string ID, extracting value', { id });
+                return id.value;
+            }
+            return String(id);
+        });
+
+        logger.debug('Cleaned group IDs', { cleanGroupIds });
+
+        // First get current user groups to avoid removing existing groups
+        const currentGroups = await getUserGroups(userId);
+        const currentGroupIds = currentGroups.map(group => group.id);
+
+        // Combine current groups with new groups (avoiding duplicates)
+        const allGroupIds = [...new Set([...currentGroupIds, ...cleanGroupIds])];
+
+        logger.debug('Updating user groups', {
+            userId,
+            currentGroups: currentGroupIds.length,
+            newGroups: cleanGroupIds.length,
+            totalGroups: allGroupIds.length,
+            allGroupIds
+        });
+
+        // Make the API request to update user groups
+        const requestBody = JSON.stringify({ userGroupIds: allGroupIds });
+
+        // Log the request body for debugging
+        logger.debug('Update user groups request body:', {
+            userId,
+            body: requestBody
+        });
+
+        const response = await makeApiRequest(`/users/${userId}/user-groups`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: requestBody
+        });
+
+        // Clear cache for this user
+        if (cache.userGroups[userId]) {
+            delete cache.userGroups[userId];
+        }
+
+        logger.info('Successfully updated user groups', {
+            userId,
+            groupCount: allGroupIds.length
+        });
+
+        return response;
+    } catch (error) {
+        // Implement retry for certain errors
+        if (retryCount < 2 && (
+            error.message.includes('500') ||
+            error.message.includes('timeout') ||
+            error.message.includes('network')
+        )) {
+            logger.warn(`Retrying updateUserGroups (attempt ${retryCount + 1}/2)`, { userId });
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+            return updateUserGroups(userId, groupIds, retryCount + 1);
+        }
+
+        logger.error('Error updating user groups:', error);
+        throw new Error(`Failed to update user groups: ${error.message}`);
+    }
+}
+
+/**
+ * Get details for a specific user
+ * @param {string} userId - The user ID
+ * @returns {Promise<Object>} - User details
+ */
+async function getUserDetails(userId) {
+    try {
+        logger.debug(`Fetching user details: ${userId}`);
+        const response = await makeApiRequest(`/users/${userId}`);
+        return response;
+    } catch (error) {
+        logger.error(`Error fetching user ${userId}:`, error);
+        throw new Error(`Failed to fetch user ${userId}: ${error.message}`);
+    }
+}
+
+/**
  * Get all accessible OIDC clients for a user based on their group membership
  * @param {string[]} userGroups - Array of group names the user belongs to
  * @returns {Promise<Array>} - Array of accessible clients with details
@@ -270,22 +392,18 @@ async function getAccessibleOIDCClients(userGroups) {
     try {
         // Generate a cache key based on the user's groups
         const cacheKey = hashArray(userGroups) + (thisClientId ? `_exclude_${thisClientId}` : '');
-
         // Check cache first
         if (cache.accessibleApps[cacheKey] &&
             cache.accessibleApps[cacheKey].timestamp > Date.now() - ACCESSIBLE_APPS_CACHE_EXPIRY) {
             logger.debug('Using cached accessible apps');
             return cache.accessibleApps[cacheKey].data.filter(client => !client.hiddenInUi);
         }
-
         // Get all clients
         logger.info('Fetching clients for access check');
         const { data: clients } = await listOIDCClients();
-
         // Array to store accessible clients with details
         const accessibleClients = [];
         logger.debug(`Processing ${clients.length} clients for access check`);
-
         // For each client, get details and check if user has access
         for (const client of clients) {
             // Skip the excluded client ID
@@ -293,21 +411,24 @@ async function getAccessibleOIDCClients(userGroups) {
                 logger.debug(`Skipping current app client: ${client.id}`);
                 continue;
             }
-
             try {
                 const clientDetails = await getOIDCClient(client.id);
+
                 // Extract group names from allowedUserGroups
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
 
-                const hasAccess = allowedGroups.some(group => userGroups.includes(group));
+                // Check if user has access:
+                // 1. If allowedUserGroups is empty, all users have access
+                // 2. Otherwise, check if user belongs to any of the allowed groups
+                const hasAccess = allowedGroups.length === 0 ||
+                    allowedGroups.some(group => userGroups.includes(group));
+
                 if (hasAccess) {
                     // Extract base URL from the first callback URL
                     const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                         ? extractBaseUrl(client.callbackURLs[0])
                         : '#';
-
                     const enrichedMetadata = findClientMetadata(client);
-
                     accessibleClients.push({
                         id: client.id,
                         name: client.name,
@@ -316,7 +437,8 @@ async function getAccessibleOIDCClients(userGroups) {
                         logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                         redirectUri,
                         allowedGroups,
-                        hasAccess
+                        hasAccess,
+                        isPublic: allowedGroups.length === 0 // Add this flag to indicate public apps
                     });
                 }
             } catch (error) {
@@ -324,15 +446,12 @@ async function getAccessibleOIDCClients(userGroups) {
                 // Continue with next client
             }
         }
-
         accessibleClients.sort((a, b) => a.name.localeCompare(b.name));
-
         // Cache the results
         cache.accessibleApps[cacheKey] = {
             data: accessibleClients,
             timestamp: Date.now()
         };
-
         const filtered = accessibleClients.filter(client => !client.hiddenInUi);
         logger.info(`Found accessible clients ${JSON.stringify({ count: filtered.length })}`);
         return filtered;
@@ -342,6 +461,7 @@ async function getAccessibleOIDCClients(userGroups) {
     }
 }
 
+
 /**
  * Get all OIDC clients with access information for a user
  * @param {string[]} userGroups - Array of group names the user belongs to
@@ -349,45 +469,43 @@ async function getAccessibleOIDCClients(userGroups) {
  */
 async function getAllOIDCClientsWithAccessInfo(userGroups) {
     // Similar caching logic as getAccessibleOIDCClients
-
     const excludeClientId = process.env.OIDC_CLIENT_ID
     try {
         // Generate a cache key based on the user's groups
-        const cacheKey = `all_${hashArray(userGroups)}${excludeClientId ? `_exclude_${excludeClientId}` : ''}`;
-
+        const cacheKey = `all_${hashArray(userGroups)}${excludeClientId ?` _exclude_${excludeClientId}` : ''}`;
         // Check cache first
         if (cache.accessibleApps[cacheKey] &&
             cache.accessibleApps[cacheKey].timestamp > Date.now() - ACCESSIBLE_APPS_CACHE_EXPIRY) {
             logger.debug('Using cached all apps with access info');
             return cache.accessibleApps[cacheKey].data;
         }
-
+        logger.info('Fetching all clients with access information');
         const { data: clients } = await listOIDCClients();
-
         const allClients = [];
         let accessibleCount = 0;
         logger.debug(`Processing ${clients.length} clients for access information`);
-
         // For each client, get details and check if user has access
         for (const client of clients) {
             if (excludeClientId && client.id === excludeClientId) {
                 logger.debug(`Skipping current app client: ${client.id}`);
                 continue;
             }
-
             try {
                 const clientDetails = await getOIDCClient(client.id);
                 const allowedGroups = clientDetails.allowedUserGroups.map(group => group.name);
-                const hasAccess = allowedGroups.some(group => userGroups.includes(group));
-                if (hasAccess) accessibleCount++;
 
+                // Check if user has access:
+                // 1. If allowedUserGroups is empty, all users have access
+                // 2. Otherwise, check if user belongs to any of the allowed groups
+                const hasAccess = allowedGroups.length === 0 ||
+                    allowedGroups.some(group => userGroups.includes(group));
+
+                if (hasAccess) accessibleCount++;
                 // Extract base URL from the first callback URL
                 const redirectUri = client.callbackURLs && client.callbackURLs.length > 0
                     ? extractBaseUrl(client.callbackURLs[0])
                     : '#';
-
                 const enrichedMetadata = findClientMetadata(client);
-
                 allClients.push({
                     id: client.id,
                     name: client.name,
@@ -395,27 +513,24 @@ async function getAllOIDCClientsWithAccessInfo(userGroups) {
                     logo: client.hasLogo ? `${POCKET_ID_BASE_URL}/api/oidc/clients/${client.id}/logo` : null,
                     redirectUri,
                     allowedGroups,
-                    hasAccess
+                    hasAccess,
+                    isPublic: allowedGroups.length === 0 // Add this flag to indicate public apps
                 });
             } catch (error) {
                 logger.error(`Error processing client ${client.id}:`, error);
                 // Continue with next client
             }
         }
-
         allClients.sort((a, b) => a.name.localeCompare(b.name));
-
         // Cache the results
         cache.accessibleApps[cacheKey] = {
             data: allClients,
             timestamp: Date.now()
         };
-
         logger.info(`Processed total clients ${JSON.stringify({
             total: allClients.length,
             accessible: accessibleCount
         })}`);
-
         return allClients;
     } catch (error) {
         logger.error('Error getting all OIDC clients with access info:', error);
@@ -442,6 +557,8 @@ module.exports = {
     getOIDCClientLogo,
     getAccessibleOIDCClients,
     getAllOIDCClientsWithAccessInfo,
+    getUserDetails,
     getUserGroups,
+    updateUserGroups,
     clearCache
 };

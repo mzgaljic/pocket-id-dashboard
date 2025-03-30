@@ -21,7 +21,7 @@ api.interceptors.response.use(
           title: 'Session Expired',
           description: 'Your session has expired. Please sign in again.',
           icon: 'i-heroicons-exclamation-circle',
-          color: 'amber',
+          color: 'warning',
           timeout: 5000
         });
 

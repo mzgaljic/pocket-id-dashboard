@@ -1,15 +1,19 @@
-// src/router/guards.js
 import { authService } from '../services/auth';
 
 export async function authGuard(to, from, next) {
   try {
-    const { authenticated } = await authService.checkAuthStatus();
+    const { authenticated, user } = await authService.checkAuthStatus();
 
     // If route requires auth and user is not authenticated
     if (to.meta.requiresAuth && !authenticated) {
       // Save the intended destination for redirection after login
       sessionStorage.setItem('redirectPath', to.fullPath);
       return next('/');
+    }
+
+    // If route requires admin and user is not an admin
+    if (to.meta.requiresAdmin && (!user || !user.isAdmin)) {
+      return next('/dashboard');
     }
 
     // If route is for guests only and user is authenticated
@@ -25,7 +29,6 @@ export async function authGuard(to, from, next) {
     if (to.meta.requiresAuth) {
       return next('/');
     }
-
     next();
   }
 }

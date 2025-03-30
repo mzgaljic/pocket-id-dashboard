@@ -178,11 +178,12 @@
 
 <script setup>
 import { ref, onMounted, computed, nextTick, inject, watch  } from 'vue';
+import { useRouter } from 'vue-router';
 import { appService } from '../services/apps';
 import AppLogo from '../components/AppLogo.vue';
 import ButtonTextTransition from '../components/ButtonTextTransition.vue';
 
-
+const router = useRouter();
 const loading = ref(true);
 const error = ref(null);
 const accessibleApps = ref([]);
@@ -194,7 +195,10 @@ const requestingAccessFor = ref(null);
 const requestAccessPanel = ref(null);
 const toast = useToast();
 const appsToRequest = computed(() => {
-  return allApps.value.filter(app => !app.hasAccess);
+  // Filter out apps that:
+  // 1. User already has access to
+  // 2. Are public (available to all users)
+  return allApps.value.filter(app => !app.hasAccess && !app.isPublic);
 });
 
 const reloadTrigger = inject('reloadTrigger', ref(0));
@@ -238,7 +242,7 @@ function launchApp(app) {
       title: 'Launch Failed',
       description: 'This application does not have a valid launch URL.',
       icon: 'i-heroicons-exclamation-circle',
-      color: 'amber',
+      color: 'warning',
       timeout: 5000
     });
   }
@@ -272,7 +276,7 @@ async function requestAccess(appId) {
     requestingAccessFor.value = appId;
 
     // Get the updated request data from the service
-    const updatedRequest = await appService.requestAccess(appId);
+    const response = await appService.requestAccess(appId);
 
     // Add a slight delay to make the animation more noticeable
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -293,20 +297,38 @@ async function requestAccess(appId) {
       requestedApps.value.push(appId);
     }
 
-    toast.add({
-      title: 'Access Requested',
-      description: 'Your request has been submitted to the administrator.',
-      icon: 'i-heroicons-check-circle',
-      color: 'green',
-      timeout: 5000
-    });
+    // Check if this is an admin self-request
+    if (response.isAdminRequest) {
+      toast.add({
+        title: 'Admin Self-Request',
+        description: 'Request submitted! As an admin, you can approve your own request on the Manage Requests page.',
+        icon: 'i-heroicons-information-circle',
+        color: 'info',
+        timeout: 8000,
+        actions: [
+          {
+            label: 'Go to Requests',
+            variant: 'outline',
+            onClick: () => router.push('/admin/requests')
+          }
+        ]
+      });
+    } else {
+      toast.add({
+        title: 'Access Requested',
+        description: 'Your request has been submitted to the administrator.',
+        icon: 'i-heroicons-check-circle',
+        color: 'success',
+        timeout: 5000
+      });
+    }
   } catch (error) {
     console.error('Failed to request access', error);
     toast.add({
       title: 'Request Failed',
       description: 'There was an error submitting your request. Please try again.',
       icon: 'i-heroicons-x-circle',
-      color: 'red',
+      color: 'error',
       timeout: 5000
     });
   } finally {

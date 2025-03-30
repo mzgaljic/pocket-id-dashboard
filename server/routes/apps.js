@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
             return res.status(400).json({ error: 'User ID is required' });
         }
 
-        logger.info('Fetching groups for user', { userId });
+        logger.debug('Fetching groups for user', { userId });
         // Get user groups from the API
         const userGroups = await pocketIdService.getUserGroups(userId);
         logger.debug(`Retrieved ${userGroups.length} groups for user`, { userId });
@@ -87,7 +87,8 @@ router.post('/request-access', async (req, res) => {
             userId: user.id,
             userEmail: user.email,
             appId,
-            appName
+            appName,
+            isAdmin: user.isAdmin
         });
 
         // Save the request to the database
@@ -97,9 +98,28 @@ router.post('/request-access', async (req, res) => {
             appName,
             notes: `Access requested by ${user.name} (${user.email})`
         };
-
         const savedRequest = await accessRequestRepository.createRequest(requestData);
 
+        // Check if the requester is an admin
+        const isAdmin = user.isAdmin === true;
+
+        // If the requester is an admin, skip email notification
+        if (isAdmin) {
+            logger.info('Skipping email notification for admin self-request', {
+                userId: user.id,
+                appId
+            });
+
+            // Return success response with admin flag
+            return res.json({
+                success: true,
+                message: 'Access request submitted',
+                request: savedRequest,
+                isAdminRequest: true
+            });
+        }
+
+        // For non-admin users, send email notification as usual
         // Create request details for email
         const requestDetails = {
             appId,
@@ -127,11 +147,12 @@ router.post('/request-access', async (req, res) => {
                 });
             });
 
-        // Return success response with the saved request
+        // Return success response
         res.json({
             success: true,
             message: 'Access request submitted',
-            request: savedRequest
+            request: savedRequest,
+            isAdminRequest: false
         });
     } catch (error) {
         logger.error('Error requesting access:', error);

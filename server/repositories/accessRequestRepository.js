@@ -100,6 +100,33 @@ class AccessRequestRepository {
     }
 
     /**
+     * Get all access requests
+     * @returns {Promise<Array>} - Array of all requests
+     */
+    async getAllRequests() {
+        try {
+            logger.debug('Getting all access requests');
+            const requests = await db('access_requests')
+                .orderBy([
+                    { column: 'requested_at', order: 'desc' }
+                ]);
+
+            // Convert to camelCase for application
+            return requests.map(request => ({
+                id: request.id,
+                userId: request.user_id,
+                appId: request.app_id,
+                requestedAt: request.requested_at,
+                status: request.status,
+                notes: request.notes
+            }));
+        } catch (error) {
+            logger.error('Error getting all access requests:', error);
+            throw new Error(`Failed to get access requests: ${error.message}`);
+        }
+    }
+
+    /**
      * Get an access request by user ID and app ID
      * @param {string} userId - User ID
      * @param {string} appId - App ID

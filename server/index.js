@@ -200,6 +200,7 @@ async function startServer() {
         app.use('/auth', require('./routes/auth'));
         app.use('/api/config', require('./routes/config'));
         app.use('/api/proxy', require('./routes/proxy'));
+        app.use('/api/admin', require('./routes/admin'));
 
         // Handle SPA routes - this should be after all API routes
         // In development, we'll redirect to the Vue dev server

@@ -54,6 +54,7 @@ export const appService = {
         appId,
         requested: true,
         requestStatus: 'pending',
+        isAdminRequest: response.data.isAdminRequest || false,
         ...response.data.request
       };
     } catch (error) {

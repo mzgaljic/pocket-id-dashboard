@@ -124,7 +124,7 @@ async function checkAuth() {
       title: 'Authentication Error',
       description: 'There was a problem checking your authentication status. Please try refreshing the page.',
       icon: 'i-heroicons-exclamation-circle',
-      color: 'red',
+      color: 'error',
       timeout: 5000
     });
 
@@ -185,7 +185,7 @@ async function clearServerCache() {
       title: 'Cache Cleared',
       description: 'Server cache has been cleared successfully. Refreshing data...',
       icon: 'i-heroicons-check-circle',
-      color: 'green',
+      color: 'success',
       timeout: 5000
     });
   } catch (error) {
@@ -194,7 +194,7 @@ async function clearServerCache() {
       title: 'Error',
       description: 'Failed to clear server cache. Please try again.',
       icon: 'i-heroicons-exclamation-circle',
-      color: 'red',
+      color: 'error',
       timeout: 5000
     });
   } finally {
@@ -218,13 +218,18 @@ const userMenuItems = computed(() => {
         disabled: isLoggingOut.value,
         onSelect: () => logout(),
       }
-    ]
+    ],
   ];
 
   // admin-only features
   if (isAdmin.value) {
     // Insert before the last group (sign out)
     items.splice(1, 0, [
+      {
+        label: 'Manage Requests',
+        icon: 'i-heroicons-key',
+        onSelect: () => router.push('/admin/requests')
+      },
       {
         label: isClearingCache.value ? 'Clearing Cache...' : 'Clear Server Cache',
         icon: isClearingCache.value ? 'i-heroicons-arrow-path' : 'i-heroicons-trash',
@@ -262,7 +267,7 @@ const logout = async () => {
       title: 'Logout Failed',
       description: 'There was a problem logging you out. Please try again.',
       icon: 'i-heroicons-x-circle',
-      color: 'red',
+      color: 'error',
       timeout: 5000
     });
     isLoggingOut.value = false;
