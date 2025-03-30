@@ -5,11 +5,13 @@ const knex = require('knex');
 const dbConfig = require('../config/database');
 const logger = require('../utils/logger');
 
-// Create data directory if it doesn't exist
-const dataDir = path.dirname(dbConfig.connection.filename);
-if (!fs.existsSync(dataDir)) {
-    logger.info(`Creating data directory: ${dataDir}`);
-    fs.mkdirSync(dataDir, { recursive: true });
+// Create data directory if needed
+if (dbConfig.client === 'better-sqlite3' || dbConfig.client === 'sqlite3') {
+    const dataDir = path.dirname(dbConfig.connection.filename);
+    if (!fs.existsSync(dataDir)) {
+        logger.info(`Creating data directory: ${dataDir}`);
+        fs.mkdirSync(dataDir, { recursive: true });
+    }
 }
 
 // Create a custom logger for Knex that respects our log levels
