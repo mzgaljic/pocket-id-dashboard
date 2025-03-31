@@ -1,99 +1,96 @@
 # Pocket ID Dashboard
 
-A web application that provides [Pocket ID](https://github.com/pocket-id/pocket-id) users with a centralized dashboard to access their authorized OIDC applications.
+A web application that provides [Pocket ID](https://github.com/pocket-id/pocket-id) users with a centralized dashboard to access their OIDC applications.
 
 ## Features
 
-- Single sign-on with OIDC (PKCE flow)
-- View and launch authorized applications
+- Single sign-on with OIDC (PKCE flow - public client)
+- View and launch your authorized applications
 - Request access to new applications
-- Email notifications for access requests
-- Dark/light mode support
+- Dark mode support
+- Admin features:
+  - Admins are designated via a user group in Pocket ID
+  - Email notifications for access requests
+  - Manage access requests directly in the UI (approve or reject)
 
+## Screenshots
+
+Coming soon.
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- [Pocket ID](https://github.com/pocket-id/pocket-id) set up and running
-- SMTP server for email notifications (optional)
+1. **Configure a new OIDC client in Pocket ID**  
+   Create a new OIDC client in Pocket ID. For clarity, name it something like “Pocket ID Dashboard.” Then apply the following settings (example):
 
-### Setup and Deployment
+   ```
+   callback url(s):         https://pocket-id-dashboard.mydomain.com/auth/callback
+   logout callback url(s):  https://pocket-id-dashboard.mydomain.com
+   PKCE:                    true
+   Public Client:           true
+   ```
 
-1. **Clone the repository**
+2. **Configure environment variables**  
+   Create a `.env` file based on the sample located here:  
+   https://raw.githubusercontent.com/mzgaljic/pocket-id-dashboard/main/local-dev-sample.env
 
-```bash
-git clone https://github.com/yourusername/pocket-id-dashboard.git
-cd pocket-id-dashboard
-```
+   Then edit the `.env` file. At minimum, set these required variables:
+   ```
+   # Required configuration
+   OIDC_CLIENT_ID=your_client_id
+   OIDC_REDIRECT_URI=https://your-domain.com/auth/callback
+   OIDC_POST_LOGOUT_REDIRECT_URI=https://your-domain.com
+   POCKET_ID_BASE_URL=https://your-pocket-id-instance
+   POCKET_ID_API_KEY=your_api_key
+   SESSION_SECRET=your_secure_session_secret 
+   ```
+   The session secret can be any string. To generate a strong session secret, consider running `npm run generate-secret`. The script is here: [/server/scripts/generate-secret.js](https://github.com/mzgaljic/pocket-id-dashboard/blob/main/server/scripts/generate-secret.js).
 
-2. **Configure a new OIDC client in Pocket ID**
+### Run with Docker Compose
 
-Create a new OIDC client in pocket ID, name it something like `Pocket ID Dashboard`.
+1. Edit or create a new Docker Compose file (YAML). An example is available here:  
+   https://github.com/mzgaljic/pocket-id-dashboard/blob/main/docker-compose.yml
 
-Then apply these settings (example) to the new OIDC client:
-```
-callback url(s):         https://pocket-id-dashboard.mydomain.com/auth/callback
-                         http://localhost:3000/auth/callback  <-- if testing locally
-                         
-logout callback url(s):  https://pocket-id-dashboard.mydomain.com
-                         http://localhost:3000  <-- if testing locally
+2. Start your containers:
+   ```bash
+   docker compose up -d
+   ```
 
-PKCE: true
+The application will be accessible at http://localhost:3001 or via the URL defined in `CLIENT_ORIGIN` (configured in `.env`). This README does not cover production deployment or configuring a reverse proxy.
 
-Public Client: true
-```
+### Run on Bare Metal
 
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:mzgaljic/pocket-id-dashboard.git
+   cd pocket-id-dashboard
+   ```
+2. Install npm packages and start the app:
+   ```bash
+   # Install dependencies
+   npm install
+   cd client && npm install
+   cd ..
+   npm run start
+   ```
 
-3. **Configure environment variables**
+## Local Development
 
-Create a `.env` file based on the sample:
-
-```bash
-cp local-dev-sample.env .env
-```
-
-Edit the `.env` file and set at minimum these required variables:
-
-```
-# Required configuration
-OIDC_CLIENT_ID=your_client_id
-OIDC_REDIRECT_URI=https://your-domain.com/auth/callback
-OIDC_POST_LOGOUT_REDIRECT_URI=https://your-domain.com
-POCKET_ID_BASE_URL=https://your-pocket-id-instance
-POCKET_ID_API_KEY=your_api_key
-SESSION_SECRET=your_secure_session_secret  # Run 'npm run generate-secret' to generate one
-```
-> Note: The Docker Compose configuration uses this .env file directly via the env_file option, so all your configuration will be applied to the container automatically.
-
-4. **Run with Docker Compose**
-
-```bash
-docker compose up -d
-```
-
-The application will be available at http://localhost:3000
-
-### Development
-
-For local development:
-
+For local development, run:
 ```bash
 # Install dependencies
 npm install
 cd client && npm install
 cd ..
-
-# Run in development mode
+# Start in development mode
 npm run dev
 ```
 
-## Configuration
+## Database Configuration
 
-See [DATABASE.md](DATABASE.md) for database configuration options.
-
+For details on database settings, see [DATABASE.md](DATABASE.md).
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
