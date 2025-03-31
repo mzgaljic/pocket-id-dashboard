@@ -7,7 +7,7 @@ services:
     ports: [ "3001:3000" ]
     env_file: [ .env ]
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
     volumes:
       - ./data/docker-data:/app/data
     restart: unless-stopped
