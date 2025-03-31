@@ -92,24 +92,39 @@ async function checkAuth() {
     loading.value = true;
     authError.value = null;
     authCheckFailed.value = false;
-
     const { authenticated, user: userData, oidcInitialized } = await authService.checkAuthStatus();
     console.log('Auth status:', { authenticated, oidcInitialized });
-
     if (authenticated) {
       user.value = userData;
       console.log('User is authenticated:', userData);
+
+      // Check for redirect after login
+      const redirectPath = sessionStorage.getItem('redirectPath');
+      if (redirectPath) {
+        // For admin routes, verify admin status
+        if (redirectPath.startsWith('/admin/')) {
+          if (userData.isAdmin) {
+            sessionStorage.removeItem('redirectPath');
+            await router.push(redirectPath);
+          } else {
+            // Clear redirect if not admin
+            sessionStorage.removeItem('redirectPath');
+          }
+        } else {
+          // For non-admin routes, redirect normally
+          sessionStorage.removeItem('redirectPath');
+          await router.push(redirectPath);
+        }
+      }
     } else {
       console.log('User is not authenticated');
       user.value = null;
-
       // If we're on a protected route, redirect to home
       if (router.currentRoute.value.path !== '/' &&
         router.currentRoute.value.meta?.requiresAuth) {
-        router.push('/');
+        await router.push('/');
       }
     }
-
     if (!oidcInitialized) {
       authError.value = 'OIDC service is not initialized. Please try again later.';
     }
@@ -131,7 +146,7 @@ async function checkAuth() {
     // If we're on a protected route, redirect to home
     if (router.currentRoute.value.path !== '/' &&
       router.currentRoute.value.meta?.requiresAuth) {
-      router.push('/');
+      await router.push('/');
     }
   } finally {
     loading.value = false;

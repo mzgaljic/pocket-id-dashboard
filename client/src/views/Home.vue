@@ -46,7 +46,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { authService } from '../services/auth';
-import {configService} from "@/services/config.js";
+import {configService} from "../services/config.js";
 import AppLogoImage from '../components/AppLogoImage.vue';
 
 

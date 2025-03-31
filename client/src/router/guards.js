@@ -13,7 +13,14 @@ export async function authGuard(to, from, next) {
 
     // If route requires admin and user is not an admin
     if (to.meta.requiresAdmin && (!user || !user.isAdmin)) {
-      return next('/dashboard');
+      // If user is authenticated but not admin, redirect to dashboard
+      if (authenticated) {
+        return next('/dashboard');
+      }
+
+      // If not authenticated, save the intended destination for redirection after login
+      sessionStorage.setItem('redirectPath', to.fullPath);
+      return next('/');
     }
 
     // If route is for guests only and user is authenticated
