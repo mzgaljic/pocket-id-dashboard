@@ -6,7 +6,7 @@ const dbConfig = require('../config/database');
 const logger = require('../utils/logger');
 
 // Create data directory if needed
-if (dbConfig.client === 'better-sqlite3' || dbConfig.client === 'sqlite3') {
+if (dbConfig.client === 'better-sqlite3') {
     const dataDir = path.dirname(dbConfig.connection.filename);
     if (!fs.existsSync(dataDir)) {
         logger.info(`Creating data directory: ${dataDir}`);

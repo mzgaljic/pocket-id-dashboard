@@ -27,32 +27,6 @@ if (dbConfig.client === 'better-sqlite3') {
         }
     };
     logger.info('Configured better-sqlite3 with WAL mode and pragmas');
-}
-// Add specific settings for sqlite3 client
-else if (dbConfig.client === 'sqlite3') {
-    // For sqlite3, we can use the afterCreate hook
-    dbConfig.pool.afterCreate = (conn, cb) => {
-        logger.debug('Setting SQLite pragmas');
-        conn.run('PRAGMA journal_mode = WAL;', (err) => {
-            if (err) {
-                logger.error('Error setting journal_mode', err);
-                return cb(err);
-            }
-            conn.run('PRAGMA synchronous = NORMAL;', (err) => {
-                if (err) {
-                    logger.error('Error setting synchronous mode', err);
-                    return cb(err);
-                }
-                conn.run('PRAGMA busy_timeout = 5000;', (err) => {
-                    if (err) {
-                        logger.error('Error setting busy_timeout', err);
-                    }
-                    cb(err);
-                });
-            });
-        });
-    };
-    logger.info('Configured sqlite3 with WAL mode and pragmas');
 } else if (dbConfig.client === 'pg') {
     dbConfig.connection = {
         host: process.env.DB_HOST || 'localhost',
