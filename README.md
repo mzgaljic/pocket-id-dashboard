@@ -59,7 +59,6 @@ Edit the `.env` file and set at minimum these required variables:
 ```
 # Required configuration
 OIDC_CLIENT_ID=your_client_id
-OIDC_DISCOVERY_URL=https://your-oidc-provider/.well-known/openid-configuration
 OIDC_REDIRECT_URI=https://your-domain.com/auth/callback
 OIDC_POST_LOGOUT_REDIRECT_URI=https://your-domain.com
 POCKET_ID_BASE_URL=https://your-pocket-id-instance

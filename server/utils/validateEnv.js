@@ -25,7 +25,6 @@ function validateEnvironment() {
 
     const requiredVars = [
         { name: 'OIDC_CLIENT_ID' },
-        { name: 'OIDC_DISCOVERY_URL' },
         { name: 'POCKET_ID_BASE_URL' },
         { name: 'POCKET_ID_API_KEY' }
     ];

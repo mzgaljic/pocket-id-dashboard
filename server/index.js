@@ -33,7 +33,6 @@ const PORT = process.env.PORT || 3000;
 logger.info('Environment:', {
     NODE_ENV: process.env.NODE_ENV,
     PORT: process.env.PORT,
-    OIDC_DISCOVERY_URL: process.env.OIDC_DISCOVERY_URL,
     OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
     OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
     OIDC_POST_LOGOUT_REDIRECT_URI: process.env.OIDC_POST_LOGOUT_REDIRECT_URI,

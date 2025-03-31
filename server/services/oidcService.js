@@ -7,23 +7,21 @@ let config;
 async function initializeOIDCClient() {
     try {
         // Check if required environment variables are set
-        if (!process.env.OIDC_DISCOVERY_URL) {
-            throw new Error('OIDC_DISCOVERY_URL environment variable is not set');
+        if (!process.env.POCKET_ID_BASE_URL) {
+            throw new Error('POCKET_ID_BASE_URL environment variable is not set');
         }
         if (!process.env.OIDC_CLIENT_ID) {
             throw new Error('OIDC_CLIENT_ID environment variable is not set');
         }
 
+        const discoveryUrl = `${process.env.POCKET_ID_BASE_URL}/.well-known/openid-configuration`;
         logger.info('Discovering OIDC provider', {
-            discoveryUrl: process.env.OIDC_DISCOVERY_URL,
+            discoveryUrl: discoveryUrl,
             clientId: process.env.OIDC_CLIENT_ID
         });
 
         // Use the discovery function without client secret (public client)
-        config = await discovery(
-            new URL(process.env.OIDC_DISCOVERY_URL),
-            process.env.OIDC_CLIENT_ID
-        );
+        config = await discovery(new URL(discoveryUrl), process.env.OIDC_CLIENT_ID);
 
         logger.info('OIDC client initialized successfully as a public client');
         logger.debug('OIDC endpoints', {
