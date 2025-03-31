@@ -49,6 +49,8 @@ Coming soon.
 
 ### Run with Docker Compose
 
+Docker images are published to gcr (github container registry), [view versions here](https://github.com/mzgaljic/pocket-id-dashboard/pkgs/container/pocket-id-dashboard/versions).
+
 1. Edit or create a new Docker Compose file (YAML). An example is available here:  
    https://github.com/mzgaljic/pocket-id-dashboard/blob/main/docker-compose.yml
 
