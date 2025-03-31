@@ -35,15 +35,13 @@ RUN mkdir -p /app/data && \
     chown -R node:node /app/data && \
     chmod 755 /app/data
 
-# volume for persistent data
-VOLUME /app/data
+COPY wait-for-pocket-id.sh ./
 
 EXPOSE 3000
 
-# Switch to non-root user
 USER node
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD wget -q --spider http://localhost:3000/auth/status || exit 1
 
-CMD ["node", "server/index.js"]
+ENTRYPOINT ["./wait-for-pocket-id.sh"]
