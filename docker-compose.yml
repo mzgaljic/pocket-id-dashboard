@@ -10,7 +10,7 @@ services:
 
   # Pocket ID Dashboard
   pocket-id-dashboard:
-    image: <image here>
+    image: ghcr.io/mzgaljic/pocket-id-dashboard:latest
     container_name: pocket-id-dashboard
     ports: [ 3001:3000 ]
     env_file: [ ./pocket-id-dashboard/.env, ./pocket-id-dashboard/.env.secrets ]

@@ -89,6 +89,11 @@ cd ..
 npm run dev
 ```
 
+OR build and run the docker image:
+```bash
+docker compose -f docker-compose-dev.yml up
+```
+
 ## Database Configuration
 
 For details on database settings, see [DATABASE.md](DATABASE.md).

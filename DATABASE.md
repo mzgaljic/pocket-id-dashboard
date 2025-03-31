@@ -29,12 +29,8 @@ DB_SSL=false
 
 ## Docker Persistence
 
-When using Docker, database files are stored in a named volume:
-
-```yaml
-volumes:
-  - pocket_id_data:/app/data
-```
+When using Docker, database files (sqlite) are stored inside the container in `/app/data`. If you
+wish to persist this, map that directory to a directory on your host machine. 
 
 ## Schema
 
@@ -61,22 +57,3 @@ Stores user session data.
 | sess | JSON | Session data |
 | expired | TIMESTAMP | Expiration time |
 
-## Backup and Restore
-
-### SQLite
-
-Backup:
-```bash
-docker exec -it pocket-id-dashboard cp /app/data/pocket-id-dashboard.db /app/data/backup.db
-docker cp pocket-id-dashboard:/app/data/backup.db ./backup.db
-```
-
-Restore:
-```bash
-docker cp ./backup.db pocket-id-dashboard:/app/data/pocket-id-dashboard.db
-docker restart pocket-id-dashboard
-```
-
-### PostgreSQL
-
-Use standard PostgreSQL backup and restore procedures.
