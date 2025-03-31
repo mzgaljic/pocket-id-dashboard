@@ -1,14 +1,28 @@
-version: '3.8'
+# This is an example docker-compose configuration.
 
 services:
-  pocket-id-dashboard:
-    image: pocket-id-dashboard
-    build: .
-    ports: [ "3000:3000" ]
-    env_file: [ .env ]
-    environment:
-      - NODE_ENV=production
-    volumes:
-      - ./data/docker-data:/app/data
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id
     restart: unless-stopped
-    user: "node"
+    env_file: ./pocket-id/.env
+    ports: [ 3000:80 ]
+    volumes: [ ./pocket-id/data:/app/backend/data ]
+
+  # Pocket ID Dashboard
+  pocket-id-dashboard:
+    image: <image here>
+    container_name: pocket-id-dashboard
+    ports: [ 3001:3000 ]
+    env_file: [ ./pocket-id-dashboard/.env, ./pocket-id-dashboard/.env.secrets ]
+    environment: [ NODE_ENV=production ]
+    volumes: [ ./pocket-id-dashboard/data:/app/data ]
+    restart: unless-stopped
+    # optional: set cpu and memory limits
+    deploy:
+      resources:
+        limits:
+          memory: 100m
+          cpus: 0.5
+        reservations:
+          memory: 60m
+          cpus: 0.2
