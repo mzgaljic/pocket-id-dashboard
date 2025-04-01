@@ -48,8 +48,8 @@ Here are some screenshots of the Pocket ID Dashboard:
    </a>
 
 6. **Dropdown menu**  
-   <a href="screenshots/dropdown-menu.png" target="_blank">
-   <img src="screenshots/dropdown-menu.png" alt="Dropdown Menu" width="400">
+   <a href="screenshots/dropdown-menu.jpg" target="_blank">
+   <img src="screenshots/dropdown-menu.jpg" alt="Dropdown Menu" width="400">
    </a>
 
 7. **Mobile View**  
