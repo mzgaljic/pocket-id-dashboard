@@ -46,6 +46,9 @@ Coming soon.
    SESSION_SECRET=your_secure_session_secret 
    ```
    The session secret can be any string. To generate a strong session secret, consider running `npm run generate-secret`. The script is here: [/server/scripts/generate-secret.js](https://github.com/mzgaljic/pocket-id-dashboard/blob/main/server/scripts/generate-secret.js).
+   <br/><br/>
+   There are many other useful variables, for example `ADMIN_GROUP_NAME` defines the Pocket ID user group
+   to use for determining which dashboard users are admins (can manage access requests, clear server cache).
 
 ### Run with Docker Compose
 
@@ -77,6 +80,14 @@ The application will be accessible at http://localhost:3001 or via the URL defin
    npm run start
    ```
 
+## Database Configuration
+
+For details on database settings, see [DATABASE.md](DATABASE.md).
+
+## Customize the dashboard
+
+For details on database settings, see [CUSTOMIZE.md](CUSTOMIZE.md).
+
 ## Local Development
 
 For local development, run:
@@ -93,10 +104,6 @@ OR build and run the docker image:
 ```bash
 docker compose -f docker-compose-dev.yml up
 ```
-
-## Database Configuration
-
-For details on database settings, see [DATABASE.md](DATABASE.md).
 
 ## License
 

@@ -15,7 +15,9 @@ services:
     ports: [ 3001:3000 ]
     env_file: [ ./pocket-id-dashboard/.env, ./pocket-id-dashboard/.env.secrets ]
     environment: [ NODE_ENV=production ]
-    volumes: [ ./pocket-id-dashboard/data:/app/data ]
+    volumes:
+      - ./pocket-id-dashboard/data:/app/data # if using sqlite
+      - ./pocket-id-dashboard/customize.yaml:/app/data/customize.yaml # if customizing dashboard
     restart: unless-stopped
     # optional: set cpu and memory limits
     deploy:
