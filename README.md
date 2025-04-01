@@ -15,7 +15,43 @@ A web application that provides [Pocket ID](https://github.com/pocket-id/pocket-
 
 ## Screenshots
 
-Coming soon.
+Here are some screenshots of the Pocket ID Dashboard:
+
+1. **Login Page**  
+   <a href="screenshots/login-page.png" target="_blank">
+   <img src="screenshots/login-page.png" alt="Login Page" width="400">
+   </a>
+
+2. **Dashboard - Light Mode**  
+   <a href="screenshots/dashboard-light.png" target="_blank">
+   <img src="screenshots/dashboard-light.png" alt="Dashboard Light Mode" width="400">
+   </a>
+
+3. **Dashboard - Dark Mode**  
+   <a href="screenshots/dashboard-dark.png" target="_blank">
+   <img src="screenshots/dashboard-dark.png" alt="Dashboard Dark Mode" width="400">
+   </a>
+
+4. **Request Access to an app (an OIDC client)**  
+   <a href="screenshots/request-access.png" target="_blank">
+   <img src="screenshots/request-access.png" alt="Request Access" width="400">
+   </a>
+
+5. **Access Request Manager**  
+   <a href="screenshots/access-request-manager.jpeg" target="_blank">
+   <img src="screenshots/access-request-manager.jpeg" alt="Access Request Manager" width="400">
+   </a>
+
+6. **Dropdown menu**  
+   <a href="screenshots/dropdown-menu.png" target="_blank">
+   <img src="screenshots/dropdown-menu.png" alt="Dropdown Menu" width="400">
+   </a>
+
+7. **Mobile View**  
+   <a href="screenshots/mobile.png" target="_blank">
+   <img src="screenshots/mobile.png" alt="Mobile View" width="400">
+   </a>
+
 
 ## Quick Start
 
