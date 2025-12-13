@@ -246,8 +246,17 @@ async function loadApps() {
 
     console.log(`Loaded ${accessibleApps.value.length} accessible apps and ${allApps.value.length} total apps`);
   } catch (err) {
+    // Check if it's an authentication error
+    if (err.__authError || err.response?.status === 401) {
+      // Auth error - redirect will be handled by interceptor
+      // Just clear local state and return early
+      error.value = null;
+      loading.value = false;
+      return;
+    }
+
     // Only show error if not already handled by the interceptor
-    if (!err.__redirected) {
+    if (!err.__redirected && !err.__handled) {
       console.error('Failed to load apps', err);
       error.value = err.response?.data?.message || 'Failed to load applications. Please try again.';
     }

@@ -18,6 +18,11 @@
       <p class="text-center text-gray-500 dark:text-gray-300 mb-6 mt-6">
         Sign in to access your application dashboard.
       </p>
+      <div v-if="sessionExpired" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
+        <p class="text-amber-700 dark:text-amber-400 text-sm">
+          <strong>Session Expired:</strong> Your previous session is no longer valid. Please sign in again.
+        </p>
+      </div>
       <div v-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
         <p class="text-red-700 dark:text-red-400 text-sm">
           <strong>Error:</strong> {{ error }}
@@ -52,6 +57,7 @@ import AppLogoImage from '../components/AppLogoImage.vue';
 
 const isLoading = ref(false);
 const error = ref(null);
+const sessionExpired = ref(false);
 const oidcInitialized = ref(true);
 const appTitle = ref('');
 const ssoProviderName = ref('');
@@ -63,6 +69,11 @@ function handleLogoError() {
 }
 
 onMounted(async () => {
+  // Check if we were redirected here due to session expiration
+  if (sessionStorage.getItem('sessionExpired') === 'true') {
+    sessionExpired.value = true;
+    sessionStorage.removeItem('sessionExpired');
+  }
   // Check for dark mode
   isDark.value = document.documentElement.classList.contains('dark');
 

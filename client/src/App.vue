@@ -45,6 +45,11 @@ function handleLogoError() {
 
 // Initialize dark mode from localStorage or system preference
 onMounted(async () => {
+  // Clear auth cache if session expired (helps ensure fresh auth check)
+  if (sessionStorage.getItem('sessionExpired') === 'true') {
+    authService.clearAuthStatusCache();
+  }
+
   // Check localStorage first
   const savedTheme = localStorage.getItem('color-theme');
   if (savedTheme) {
