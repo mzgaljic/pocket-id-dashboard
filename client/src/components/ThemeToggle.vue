@@ -10,47 +10,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { useTheme } from '../composables/useTheme';
 
-const isDark = ref(false);
-
-const toggleTheme = () => {
-  isDark.value = !isDark.value;
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
-  applyTheme();
-};
-
-const applyTheme = () => {
-  if (isDark.value) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-};
-
-onMounted(() => {
-  // Check for saved theme preference or use system preference
-  const savedTheme = localStorage.getItem('theme');
-
-  if (savedTheme) {
-    isDark.value = savedTheme === 'dark';
-  } else {
-    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-
-  applyTheme();
-});
-
-// Watch for system theme changes
-watch(
-  () => window.matchMedia('(prefers-color-scheme: dark)').matches,
-  (isDarkMode) => {
-    if (localStorage.getItem('theme') === null) {
-      isDark.value = isDarkMode;
-      applyTheme();
-    }
-  }
-);
+const { isDark, toggleTheme } = useTheme();
 </script>
 
 <style scoped>

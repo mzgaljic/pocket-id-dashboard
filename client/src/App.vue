@@ -6,11 +6,13 @@ import { authService } from './services/auth';
 import { appService } from './services/apps';
 import { configService } from './services/config';
 import { setFavicon } from './utils/favicon';
+import { useTheme } from './composables/useTheme';
 import SessionExpiryWarning from './components/SessionExpiryWarning.vue';
+import ThemeToggle from './components/ThemeToggle.vue';
 
 const user = ref(null);
 const router = useRouter();
-const isDark = ref(false);
+const { isDark } = useTheme();
 const toast = useToast();
 const isLoggingOut = ref(false);
 const loading = ref(true);
@@ -45,7 +47,6 @@ function handleLogoError() {
   console.log('Error loading app logo.');
 }
 
-// Initialize dark mode from localStorage or system preference
 onMounted(async () => {
   // Detect silent auth failure signal from callback
   const params = new URLSearchParams(window.location.search);
@@ -65,24 +66,6 @@ onMounted(async () => {
   if (sessionStorage.getItem('sessionExpired') === 'true') {
     authService.clearAuthStatusCache();
   }
-
-  // Check localStorage first
-  const savedTheme = localStorage.getItem('color-theme');
-  if (savedTheme) {
-    isDark.value = savedTheme === 'dark';
-  } else {
-    // Check system preference
-    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  // Apply initial theme
-  applyTheme();
-
-  // react to system preference change
-  const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  darkModeMediaQuery.addEventListener('change', (e) => {
-    toggleDarkMode();
-    applyTheme();
-  });
 
   // Check authentication status
   await checkAuth();
@@ -190,9 +173,8 @@ function retryAuthCheck() {
   checkAuth();
 }
 
-// Watch for changes to isDark
+// Watch for changes to isDark to update the logo
 watch(isDark, async (newValue) => {
-  applyTheme();
   try {
     const dynamicLogoUrl = await configService.getLogoUrl(newValue);
     if (dynamicLogoUrl) {
@@ -202,22 +184,6 @@ watch(isDark, async (newValue) => {
     console.error('Failed to update logo:', error);
   }
 });
-
-// Apply theme based on isDark value
-const applyTheme = () => {
-  if (isDark.value) {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('color-theme', 'dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('color-theme', 'light');
-  }
-};
-
-// Toggle between light and dark mode
-const toggleDarkMode = () => {
-  isDark.value = !isDark.value;
-};
 
 async function clearServerCache() {
   if (!isAdmin.value) return;
@@ -341,13 +307,7 @@ const logout = async () => {
           <h1 class="text-xl font-bold">{{ appTitle }}</h1>
         </div>
         <div class="flex items-center">
-          <UButton
-            color="gray"
-            variant="ghost"
-            :icon="isDark ? 'i-heroicons-sun' : 'i-heroicons-moon'"
-            class="mr-4"
-            @click="toggleDarkMode"
-          />
+          <ThemeToggle class="mr-4" />
           <UDropdownMenu
             v-if="user"
             :items="userMenuItems">
@@ -400,10 +360,10 @@ const logout = async () => {
         </div>
 
         <!-- Show login screen if not authenticated -->
-        <div v-else-if="!user" class="flex items-center justify-center min-h-[60vh]">
-          <UCard class="max-w-md w-full">
+        <div v-else-if="!user" class="flex items-center justify-center min-h-[70vh] px-4">
+          <UCard class="max-w-md w-full shadow-lg ring-1 ring-gray-200/70 dark:ring-gray-800">
             <template #header>
-              <div class="flex flex-col items-center py-4">
+              <div class="flex flex-col items-center px-6 pt-8 pb-6">
                 <AppLogoImage
                   :src="logoUrl"
                   :alt="appTitle"
@@ -412,29 +372,34 @@ const logout = async () => {
                   class="mb-4"
                   @error="handleLogoError"
                 />
-                <h2 class="text-xl font-bold">Welcome to {{ appTitle }}</h2>
+                <h2 class="text-xl font-bold text-center">Welcome to {{ appTitle }}</h2>
               </div>
             </template>
-            <p class="text-center text-gray-600 dark:text-gray-300 mb-6 mt-6">
-              Sign in to access your application dashboard.
-            </p>
-            <div v-if="silentFailed" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-              <p class="text-blue-700 dark:text-blue-300 text-sm">
-                <strong>Single sign-on not available:</strong>
-                Please click "Sign In" to continue.
-                <span v-if="silentReason" class="block text-xs mt-1 text-blue-600 dark:text-blue-200">Reason: {{ silentReason }}</span>
-              </p>
-            </div>
             <template #footer>
-              <UButton
-                block
-                color="gray"
-                size="xl"
-                icon="i-heroicons-arrow-right-circle"
-                @click="login"
-              >
-                Sign In with {{ ssoProviderName }}
-              </UButton>
+              <div class="px-6 pb-6 pt-2 flex flex-col items-center">
+                <div
+                  v-if="silentFailed"
+                  class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4"
+                >
+                  <p class="text-blue-800 dark:text-blue-200 text-sm">
+                    <strong>Single sign-on couldn’t continue automatically.</strong>
+                    Please click the button below to sign in.
+                    <span v-if="silentReason" class="block text-xs mt-1 text-blue-700 dark:text-blue-200">
+                      Reason: {{ silentReason }}
+                    </span>
+                  </p>
+                </div>
+                <UButton
+                  color="primary"
+                  variant="solid"
+                  size="xl"
+                  icon="i-heroicons-arrow-right-on-rectangle"
+                  class="h-12 text-base font-semibold shadow-sm hover:shadow-md w-full sm:w-auto px-8"
+                  @click="login"
+                >
+                  Sign In with {{ ssoProviderName }}
+                </UButton>
+              </div>
             </template>
           </UCard>
         </div>
