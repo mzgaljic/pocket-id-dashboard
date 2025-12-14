@@ -8,7 +8,8 @@ const logger = require('../utils/logger');
 router.get('/login', async (req, res) => {
     try {
         logger.info('Login route accessed', { userId: req.session.user?.id });
-        const authUrl = await oidcService.generateAuthUrl(req);
+        const prompt = req.query.prompt;
+        const authUrl = await oidcService.generateAuthUrl(req, { prompt });
         logger.debug('Redirecting to auth URL');
         res.redirect(authUrl);
     } catch (error) {
@@ -21,6 +22,24 @@ router.get('/login', async (req, res) => {
 router.get('/callback', async (req, res) => {
     try {
         logger.info('Callback route accessed');
+
+        // Handle OIDC error responses (e.g., prompt=none with no active IdP session)
+        if (req.query.error) {
+            logger.warn('OIDC callback returned error', {
+                error: req.query.error,
+                error_description: req.query.error_description
+            });
+
+            // Clean up PKCE / state values to avoid poisoning next attempt
+            if (req.session) {
+                delete req.session.codeVerifier;
+                delete req.session.state;
+            }
+
+            const reason = encodeURIComponent(req.query.error);
+            return res.redirect(`/?silent=failed&reason=${reason}`);
+        }
+
         if (!req.session.codeVerifier) {
             logger.error('No code verifier in session - session may have been lost');
             return res.status(400).send('Authentication failed: Session lost or expired. Please try again.');
@@ -155,7 +174,8 @@ router.get('/status', (req, res) => {
 router.get('/login-url', async (req, res) => {
     try {
         logger.info('Login URL requested');
-        const authUrl = await oidcService.generateAuthUrl(req);
+        const prompt = req.query.prompt;
+        const authUrl = await oidcService.generateAuthUrl(req, { prompt });
         logger.debug('Generated login URL successfully');
         res.json({ url: authUrl });
     } catch (error) {

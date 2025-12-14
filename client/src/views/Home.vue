@@ -28,6 +28,13 @@
           <strong>Error:</strong> {{ error }}
         </p>
       </div>
+      <div v-if="silentFailed" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <p class="text-blue-700 dark:text-blue-300 text-sm">
+          <strong>Single sign-on not available:</strong>
+          Please click "Sign In" to continue.
+          <span v-if="silentReason" class="block text-xs mt-1 text-blue-600 dark:text-blue-200">Reason: {{ silentReason }}</span>
+        </p>
+      </div>
       <template #footer>
         <UButton
           block
@@ -58,6 +65,8 @@ import AppLogoImage from '../components/AppLogoImage.vue';
 const isLoading = ref(false);
 const error = ref(null);
 const sessionExpired = ref(false);
+const silentFailed = ref(false);
+const silentReason = ref(null);
 const oidcInitialized = ref(true);
 const appTitle = ref('');
 const ssoProviderName = ref('');
@@ -69,6 +78,21 @@ function handleLogoError() {
 }
 
 onMounted(async () => {
+  const params = new URLSearchParams(window.location.search);
+
+  // Detect silent auth failure signal from callback
+  if (params.get('silent') === 'failed') {
+    silentFailed.value = true;
+    silentReason.value = params.get('reason');
+
+    // Clean the URL to avoid re-processing on refresh
+    params.delete('silent');
+    params.delete('reason');
+    const newQuery = params.toString();
+    const newUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+  }
+
   // Check if we were redirected here due to session expiration
   if (sessionStorage.getItem('sessionExpired') === 'true') {
     sessionExpired.value = true;
@@ -82,6 +106,14 @@ onMounted(async () => {
     oidcInitialized.value = status.oidcInitialized;
   } catch (err) {
     error.value = 'Unable to connect to the authentication service.';
+  }
+
+  // Attempt silent login only when the user was heading to a protected route
+  const redirectPath = sessionStorage.getItem('redirectPath');
+  const silentAttempted = sessionStorage.getItem('silentLoginAttempted') === 'true';
+  if (redirectPath && !silentAttempted && !silentFailed.value) {
+    sessionStorage.setItem('silentLoginAttempted', 'true');
+    await authService.silentLogin();
   }
 
   try {

@@ -45,7 +45,7 @@ function getConfig() {
     return config;
 }
 
-async function generateAuthUrl(req) {
+async function generateAuthUrl(req, { prompt } = {}) {
     if (!config) {
         logger.error('Attempted to generate auth URL before OIDC client initialization');
         throw new Error('OIDC client not initialized');
@@ -83,6 +83,11 @@ async function generateAuthUrl(req) {
         code_challenge_method: 'S256',
         state: state
     };
+
+    // Allow optional prompt override (e.g., prompt=none for silent auth)
+    if (prompt) {
+        parameters.prompt = prompt;
+    }
 
     const authorizationUrl = buildAuthorizationUrl(config, parameters);
     logger.debug('Generated auth URL');

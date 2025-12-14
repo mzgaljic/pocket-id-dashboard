@@ -55,6 +55,23 @@ export const authService = {
     authStatusCacheTime = 0;
   },
 
+  async silentLogin() {
+    console.log('Initiating silent login (prompt=none)...');
+    this.clearAuthStatusCache();
+    try {
+      const response = await axios.get(`${API_URL}/login-url`, {
+        params: { prompt: 'none' }
+      });
+      const loginUrl = response.data.url;
+      console.log('Redirecting to silent login URL:', loginUrl);
+      window.location.href = loginUrl;
+    } catch (error) {
+      console.error('Error getting silent login URL:', error);
+      // If silent login URL fails, fall back to normal login route with prompt=none
+      window.location.href = `${API_URL}/login?prompt=none`;
+    }
+  },
+
   async login() {
     console.log('Initiating login...');
     this.clearAuthStatusCache();
