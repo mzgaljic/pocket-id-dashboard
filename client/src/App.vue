@@ -22,6 +22,8 @@ const ssoProviderName = ref('');
 const logoUrl = ref('');
 const isClearingCache = ref(false);
 const reloadTrigger = ref(0);
+const silentFailed = ref(false);
+const silentReason = ref(null);
 
 provide('reloadTrigger', reloadTrigger);
 
@@ -45,6 +47,20 @@ function handleLogoError() {
 
 // Initialize dark mode from localStorage or system preference
 onMounted(async () => {
+  // Detect silent auth failure signal from callback
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('silent') === 'failed') {
+    silentFailed.value = true;
+    silentReason.value = params.get('reason');
+
+    // Clean the URL to avoid re-processing on refresh
+    params.delete('silent');
+    params.delete('reason');
+    const newQuery = params.toString();
+    const newUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+  }
+
   // Clear auth cache if session expired (helps ensure fresh auth check)
   if (sessionStorage.getItem('sessionExpired') === 'true') {
     authService.clearAuthStatusCache();
@@ -102,6 +118,7 @@ async function checkAuth() {
     if (authenticated) {
       user.value = userData;
       console.log('User is authenticated:', userData);
+      sessionStorage.removeItem('silentLoginAttempted');
 
       // Check for redirect after login
       const redirectPath = sessionStorage.getItem('redirectPath');
@@ -124,6 +141,15 @@ async function checkAuth() {
     } else {
       console.log('User is not authenticated');
       user.value = null;
+
+      // Attempt silent login once (works even when landing directly on '/')
+      const silentAttempted = sessionStorage.getItem('silentLoginAttempted') === 'true';
+      if (!silentFailed.value && !silentAttempted && oidcInitialized) {
+        sessionStorage.setItem('silentLoginAttempted', 'true');
+        await authService.silentLogin();
+        return;
+      }
+
       // If we're on a protected route, redirect to home
       if (router.currentRoute.value.path !== '/' &&
         router.currentRoute.value.meta?.requiresAuth) {
@@ -274,6 +300,7 @@ const getUserInitials = (name) => {
 
 const login = () => {
   console.log('Initiating login...');
+  sessionStorage.removeItem('silentLoginAttempted');
   authService.login();
 };
 
@@ -387,6 +414,13 @@ const logout = async () => {
             <p class="text-center text-gray-600 dark:text-gray-300 mb-6 mt-6">
               Sign in to access your application dashboard.
             </p>
+            <div v-if="silentFailed" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+              <p class="text-blue-700 dark:text-blue-300 text-sm">
+                <strong>Single sign-on not available:</strong>
+                Please click "Sign In" to continue.
+                <span v-if="silentReason" class="block text-xs mt-1 text-blue-600 dark:text-blue-200">Reason: {{ silentReason }}</span>
+              </p>
+            </div>
             <template #footer>
               <UButton
                 block
