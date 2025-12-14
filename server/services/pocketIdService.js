@@ -1,5 +1,4 @@
 // server/services/pocketIdService.js
-const https = require('https');
 const {URL} = require('url');
 const logger = require('../utils/logger');
 const { findClientMetadata, clearMetadataCache } = require('../utils/metadataLoader');
@@ -44,103 +43,93 @@ function isCacheValid(cacheEntry) {
 }
 
 /**
- * Make an API request to the Pocket-ID API
+ * Make an API request to the Pocket-ID API using native fetch.
  * @param {string} path - API path (without base URL)
  * @param {Object} options - Request options
  * @returns {Promise<any>} - Response data
  */
-function makeApiRequest(path, options = {}) {
-    return new Promise((resolve, reject) => {
-        // Build the full URL
-        const url = new URL(`${POCKET_ID_BASE_URL}/api${path}`);
+async function makeApiRequest(path, options = {}) {
+    // Build the full URL
+    const url = new URL(`${POCKET_ID_BASE_URL}/api${path}`);
 
-        // Add query parameters if provided
-        if (options.params) {
-            Object.entries(options.params).forEach(([key, value]) => {
-                if (value !== undefined) {
-                    url.searchParams.append(key, value);
-                }
+    // Add query parameters if provided
+    if (options.params) {
+        Object.entries(options.params).forEach(([key, value]) => {
+            if (value !== undefined) {
+                url.searchParams.append(key, value);
+            }
+        });
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    const fetchOptions = {
+        method: options.method || 'GET',
+        headers: {
+            Accept: 'application/json',
+            'X-API-KEY': API_KEY,
+            ...(options.headers || {})
+        },
+        signal: controller.signal
+    };
+
+    if (options.body) {
+        fetchOptions.body = options.body;
+    }
+
+    logger.debug(`Making ${fetchOptions.method} request to ${url.pathname}${url.search}`);
+
+    try {
+        const response = await fetch(url, fetchOptions);
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const responseText = await response.text();
+            let errorMessage;
+            try {
+                const errorJson = JSON.parse(responseText || '{}');
+                errorMessage = `Request failed with status code ${response.status}: ${JSON.stringify(errorJson)}`;
+            } catch (e) {
+                errorMessage = `Request failed with status code ${response.status}: ${responseText}`;
+            }
+
+            logger.error(`API request failed with status ${response.status}`, {
+                path,
+                statusCode: response.status,
+                statusMessage: response.statusText,
+                response: responseText
             });
+
+            throw new Error(errorMessage);
         }
 
-        const requestOptions = {
-            hostname: url.hostname,
-            port: url.port || (url.protocol === 'https:' ? 443 : 80),
-            path: `${url.pathname}${url.search}`,
-            method: options.method || 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-API-KEY': API_KEY,
-                ...(options.headers || {})
-            },
-            // Disable certificate validation in dev only if needed
-            rejectUnauthorized: process.env.NODE_ENV === 'production'
-        };
+        const contentType = response.headers.get('content-type') || '';
 
-        logger.debug(`Making ${requestOptions.method} request to ${url.pathname}${url.search}`);
-
-        const req = https.request(requestOptions, (res) => {
-            let data = Buffer.from([]);
-            res.on('data', (chunk) => {
-                data = Buffer.concat([data, chunk]);
-            });
-
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    try {
-                        // Check if we expect JSON response
-                        if (res.headers['content-type']?.includes('application/json')) {
-                            resolve(JSON.parse(data.toString()));
-                        } else {
-                            // For binary data like images
-                            resolve(data);
-                        }
-                    } catch (error) {
-                        logger.error('Error parsing API response:', error);
-                        reject(new Error(`Failed to parse API response: ${error.message}`));
-                    }
-                } else {
-                    const responseText = data.toString();
-                    let errorMessage;
-                    try {
-                        // Try to parse error as JSON
-                        const errorJson = JSON.parse(responseText);
-                        errorMessage = `Request failed with status code ${res.statusCode}: ${JSON.stringify(errorJson)}`;
-                    } catch (e) {
-                        // If not JSON, use as plain text
-                        errorMessage = `Request failed with status code ${res.statusCode}: ${responseText}`;
-                    }
-
-                    logger.error(`API request failed with status ${res.statusCode}`, {
-                        path,
-                        statusCode: res.statusCode,
-                        statusMessage: res.statusMessage,
-                        response: responseText
-                    });
-
-                    reject(new Error(errorMessage));
-                }
-            });
-        });
-
-        req.on('error', (error) => {
-            logger.error(`API request error for ${path}:`, error);
-            reject(error);
-        });
-
-        // Add timeout
-        req.setTimeout(10000, () => {  // Increased timeout to 10 seconds
-            req.destroy();
-            reject(new Error('Request timeout'));
-        });
-
-        // Add request body if provided
-        if (options.body) {
-            req.write(options.body);
+        // Explicit binary response
+        if (options.responseType === 'arraybuffer') {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            return {
+                data: buffer,
+                headers: Object.fromEntries(response.headers.entries())
+            };
         }
 
-        req.end();
-    });
+        if (contentType.includes('application/json')) {
+            return await response.json();
+        }
+
+        // Fallback for binary/other content types
+        return Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            logger.error(`API request timeout for ${path}`);
+            throw new Error('Request timeout');
+        }
+        logger.error(`API request error for ${path}:`, error);
+        throw error;
+    }
 }
 
 /**
