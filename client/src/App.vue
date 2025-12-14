@@ -9,6 +9,7 @@ import { setFavicon } from './utils/favicon';
 import { useTheme } from './composables/useTheme';
 import SessionExpiryWarning from './components/SessionExpiryWarning.vue';
 import ThemeToggle from './components/ThemeToggle.vue';
+import AppLogoImage from './components/AppLogoImage.vue';
 
 const user = ref(null);
 const router = useRouter();
@@ -24,8 +25,6 @@ const ssoProviderName = ref('');
 const logoUrl = ref('');
 const isClearingCache = ref(false);
 const reloadTrigger = ref(0);
-const silentFailed = ref(false);
-const silentReason = ref(null);
 
 provide('reloadTrigger', reloadTrigger);
 
@@ -33,35 +32,7 @@ const isAdmin = computed(() => {
   return user.value?.isAdmin === true;
 });
 
-// watch(user, (newUser) => {
-//   if (newUser) {
-//     console.log('User loaded:', {
-//       name: newUser.name,
-//       isAdmin: newUser.isAdmin,
-//       groups: newUser.groups
-//     });
-//   }
-// });
-
-function handleLogoError() {
-  console.log('Error loading app logo.');
-}
-
 onMounted(async () => {
-  // Detect silent auth failure signal from callback
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('silent') === 'failed') {
-    silentFailed.value = true;
-    silentReason.value = params.get('reason');
-
-    // Clean the URL to avoid re-processing on refresh
-    params.delete('silent');
-    params.delete('reason');
-    const newQuery = params.toString();
-    const newUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname;
-    window.history.replaceState({}, document.title, newUrl);
-  }
-
   // Clear auth cache if session expired (helps ensure fresh auth check)
   if (sessionStorage.getItem('sessionExpired') === 'true') {
     authService.clearAuthStatusCache();
@@ -104,24 +75,6 @@ async function checkAuth() {
       sessionStorage.removeItem('silentLoginAttempted');
       sessionStorage.removeItem('suppressSilentLogin');
 
-      // Check for redirect after login
-      const redirectPath = sessionStorage.getItem('redirectPath');
-      if (redirectPath) {
-        // For admin routes, verify admin status
-        if (redirectPath.startsWith('/admin/')) {
-          if (userData.isAdmin) {
-            sessionStorage.removeItem('redirectPath');
-            await router.push(redirectPath);
-          } else {
-            // Clear redirect if not admin
-            sessionStorage.removeItem('redirectPath');
-          }
-        } else {
-          // For non-admin routes, redirect normally
-          sessionStorage.removeItem('redirectPath');
-          await router.push(redirectPath);
-        }
-      }
     } else {
       console.log('User is not authenticated');
       user.value = null;
@@ -129,7 +82,7 @@ async function checkAuth() {
       // Attempt silent login once (works even when landing directly on '/')
       const silentAttempted = sessionStorage.getItem('silentLoginAttempted') === 'true';
       const suppressSilent = sessionStorage.getItem('suppressSilentLogin') === 'true';
-      if (!silentFailed.value && !silentAttempted && oidcInitialized && !suppressSilent) {
+      if (!silentAttempted && oidcInitialized && !suppressSilent) {
         sessionStorage.setItem('silentLoginAttempted', 'true');
         await authService.silentLogin();
         return;
@@ -273,11 +226,12 @@ const login = () => {
   authService.login();
 };
 
-const logout = async () => {
+const logout = () => {
   try {
     isLoggingOut.value = true;
     sessionStorage.setItem('suppressSilentLogin', 'true');
-    await authService.logout();
+    // Redirect happens immediately; no need to await
+    authService.logout();
   } catch (error) {
     console.error('Logout failed', error);
     toast.add({
@@ -350,65 +304,30 @@ const logout = async () => {
                 <h3 class="text-lg font-medium">Authentication Error</h3>
               </div>
             </template>
-            <p>{{ authError || 'There was a problem with authentication. Please try again.' }}</p>
+            <div class="px-6 py-4">
+              <p class="text-gray-700 dark:text-gray-300">
+                {{ authError || 'There was a problem with authentication. Please try again.' }}
+              </p>
+            </div>
             <template #footer>
-              <div class="flex">
-                <UButton @click="retryAuthCheck" color="gray" variant="soft">Retry</UButton>
-              </div>
-            </template>
-          </UCard>
-        </div>
-
-        <!-- Show login screen if not authenticated -->
-        <div v-else-if="!user" class="flex items-center justify-center min-h-[70vh] px-4">
-          <UCard class="max-w-md w-full shadow-lg ring-1 ring-gray-200/70 dark:ring-gray-800">
-            <template #header>
-              <div class="flex flex-col items-center px-6 pt-8 pb-6">
-                <AppLogoImage
-                  :src="logoUrl"
-                  :alt="appTitle"
-                  size="xl"
-                  :isDark="isDark"
-                  class="mb-4"
-                  @error="handleLogoError"
-                />
-                <h2 class="text-xl font-bold text-center">Welcome to {{ appTitle }}</h2>
-              </div>
-            </template>
-            <template #footer>
-              <div class="px-6 pb-6 pt-2 flex flex-col items-center">
-                <div
-                  v-if="silentFailed"
-                  class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4"
-                >
-                  <p class="text-blue-800 dark:text-blue-200 text-sm">
-                    <strong>Single sign-on couldn’t continue automatically.</strong>
-                    Please click the button below to sign in.
-                    <span v-if="silentReason" class="block text-xs mt-1 text-blue-700 dark:text-blue-200">
-                      Reason: {{ silentReason }}
-                    </span>
-                  </p>
-                </div>
+              <div class="flex justify-center">
                 <UButton
+                  @click="retryAuthCheck"
                   color="primary"
                   variant="solid"
-                  size="xl"
-                  icon="i-heroicons-arrow-right-on-rectangle"
-                  class="h-12 text-base font-semibold shadow-sm hover:shadow-md w-full sm:w-auto px-8"
-                  @click="login"
+                  size="lg"
+                  icon="i-heroicons-arrow-path"
                 >
-                  Sign In with {{ ssoProviderName }}
+                  Retry
                 </UButton>
               </div>
             </template>
           </UCard>
         </div>
 
-        <!-- Show router view if authenticated -->
+        <!-- Show router view -->
         <router-view v-else />
       </main>
-      <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400">
-      </footer>
     </UContainer>
     <SessionExpiryWarning v-if="user" />
   </UApp>

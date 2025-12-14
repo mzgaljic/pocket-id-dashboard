@@ -116,14 +116,10 @@ watch(isDark, async (newValue) => {
   }
 });
 
-const login = async () => {
-  try {
-    isLoading.value = true;
-    error.value = null;
-    await authService.login();
-  } catch (err) {
-    error.value = 'Failed to initiate login. Please try again.';
-    isLoading.value = false;
-  }
+const login = () => {
+  // Redirect happens immediately; no need to await
+  isLoading.value = true;
+  error.value = null;
+  authService.login();
 };
 </script>

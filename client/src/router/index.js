@@ -33,35 +33,4 @@ const router = createRouter({
 // Use the auth guard for all routes
 router.beforeEach(authGuard);
 
-// Handle redirect after login
-router.afterEach(async (to) => {
-  // Only handle redirects after successful login
-  if (to.path === '/dashboard') {
-    const redirectPath = sessionStorage.getItem('redirectPath');
-    console.log('Checking redirect path after login:', redirectPath);
-    if (redirectPath) {
-      console.log('Redirecting to:', redirectPath);
-      if (redirectPath.startsWith('/admin/')) {
-        try {
-          const { user } = await authService.checkAuthStatus();
-          if (user && user.isAdmin) {
-            sessionStorage.removeItem('redirectPath');
-            await router.push(redirectPath);
-          } else {
-            // If not admin, clear the redirect path
-            sessionStorage.removeItem('redirectPath');
-          }
-        } catch (error) {
-          console.error('Error checking admin status for redirect:', error);
-          sessionStorage.removeItem('redirectPath');
-        }
-      } else {
-        // For non-admin routes, redirect normally
-        sessionStorage.removeItem('redirectPath');
-        await router.push(redirectPath);
-      }
-    }
-  }
-});
-
 export default router;
