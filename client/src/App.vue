@@ -119,6 +119,7 @@ async function checkAuth() {
       user.value = userData;
       console.log('User is authenticated:', userData);
       sessionStorage.removeItem('silentLoginAttempted');
+      sessionStorage.removeItem('suppressSilentLogin');
 
       // Check for redirect after login
       const redirectPath = sessionStorage.getItem('redirectPath');
@@ -144,7 +145,8 @@ async function checkAuth() {
 
       // Attempt silent login once (works even when landing directly on '/')
       const silentAttempted = sessionStorage.getItem('silentLoginAttempted') === 'true';
-      if (!silentFailed.value && !silentAttempted && oidcInitialized) {
+      const suppressSilent = sessionStorage.getItem('suppressSilentLogin') === 'true';
+      if (!silentFailed.value && !silentAttempted && oidcInitialized && !suppressSilent) {
         sessionStorage.setItem('silentLoginAttempted', 'true');
         await authService.silentLogin();
         return;
@@ -301,12 +303,14 @@ const getUserInitials = (name) => {
 const login = () => {
   console.log('Initiating login...');
   sessionStorage.removeItem('silentLoginAttempted');
+  sessionStorage.removeItem('suppressSilentLogin');
   authService.login();
 };
 
 const logout = async () => {
   try {
     isLoggingOut.value = true;
+    sessionStorage.setItem('suppressSilentLogin', 'true');
     await authService.logout();
   } catch (error) {
     console.error('Logout failed', error);
