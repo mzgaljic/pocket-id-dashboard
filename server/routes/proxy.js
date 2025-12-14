@@ -73,7 +73,7 @@ async function fetchAndProcessImage(url, size = null, useDefault = true) {
 router.get('/logo', async (req, res) => {
     try {
         const isLight = req.query.light === 'true';
-        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-configuration/logo?light=${isLight}`;
+        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-images/logo?light=${isLight}`;
 
         const image = await fetchAndProcessImage(url);
 
@@ -95,7 +95,7 @@ router.get('/app-icon/:size', async (req, res) => {
             return res.status(400).send('Invalid size requested');
         }
 
-        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-configuration/logo?light=false`;
+        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-images/logo?light=false`;
         const image = await fetchAndProcessImage(url, size);
 
         res.set('Content-Type', image.contentType);
@@ -127,7 +127,7 @@ router.get('/app-icon/:size', async (req, res) => {
 router.get('/favicon', async (req, res) => {
     try {
         const isLight = req.query.theme === 'light';
-        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-configuration/logo?light=${isLight}`;
+        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-images/logo?light=${isLight}`;
         const image = await fetchAndProcessImage(url, 32);
 
         res.set('Content-Type', 'image/png');
@@ -194,7 +194,7 @@ router.get('/ios-icon/:size?', async (req, res) => {
             return res.status(400).send('Invalid size requested');
         }
 
-        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-configuration/logo?light=false`;
+        const url = `${process.env.POCKET_ID_BASE_URL}/api/application-images/logo?light=false`;
 
         try {
             // Try to fetch the remote image
