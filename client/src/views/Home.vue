@@ -40,7 +40,7 @@
             variant="solid"
             size="xl"
             icon="i-heroicons-arrow-right-on-rectangle"
-            class="h-12 text-base font-semibold shadow-sm hover:shadow-md w-full sm:w-auto px-8"
+            class="h-12 text-base font-semibold shadow-sm hover:shadow-md w-full sm:w-auto px-2 sm:px-8"
             @click="login"
             :loading="isLoading"
             :disabled="isLoading || !oidcInitialized"
