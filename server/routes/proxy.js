@@ -156,6 +156,37 @@ router.get('/favicon', async (req, res) => {
     }
 });
 
+// Proxy per-client logos so the browser never hits the Pocket ID host directly
+router.get('/client-logo/:clientId', async (req, res) => {
+    try {
+        const { clientId } = req.params;
+        if (!clientId) {
+            return res.status(400).send('Client ID is required');
+        }
+
+        const url = `${process.env.POCKET_ID_BASE_URL}/api/oidc/clients/${clientId}/logo`;
+        const image = await fetchAndProcessImage(url);
+
+        res.set('Content-Type', image.contentType);
+        res.set('Cache-Control', `public, max-age=${CACHE_DURATION / 1000}`);
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.send(image.buffer);
+    } catch (error) {
+        logger.error('Error proxying client logo:', error);
+        // For client logos, fall back to default logo
+        try {
+            const defaultImage = await Sharp(DEFAULT_LOGO_PATH).toBuffer();
+            res.set('Content-Type', 'image/png');
+            res.set('Cache-Control', `public, max-age=${CACHE_DURATION / 1000}`);
+            res.set('X-Content-Type-Options', 'nosniff');
+            res.send(defaultImage);
+        } catch (defaultError) {
+            logger.error('Error serving default client logo:', defaultError);
+            res.status(500).send('Failed to serve client logo');
+        }
+    }
+});
+
 // Add this new function for iOS-specific image processing
 async function processImageForIOS(imageBuffer, size) {
     // Create a square canvas with padding

@@ -13,6 +13,7 @@ function sessionValidator(req, res, next) {
         req.path === '/api/proxy/logo' ||
         req.path === '/api/proxy/favicon' ||
         req.path.startsWith('/api/proxy/app-icon/') ||
+        req.path.startsWith('/api/proxy/client-logo/') ||
         req.path.startsWith('/api/proxy/ios-icon/') ||
         req.path === '/' ||
         req.path.includes('.')) {
