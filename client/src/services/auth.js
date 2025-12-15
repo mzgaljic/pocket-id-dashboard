@@ -58,34 +58,17 @@ export const authService = {
   async silentLogin() {
     console.log('Initiating silent login (prompt=none)...');
     this.clearAuthStatusCache();
-    try {
-      const response = await axios.get(`${API_URL}/login-url`, {
-        params: { prompt: 'none' }
-      });
-      const loginUrl = response.data.url;
-      console.log('Redirecting to silent login URL:', loginUrl);
-      window.location.href = loginUrl;
-    } catch (error) {
-      console.error('Error getting silent login URL:', error);
-      // If silent login URL fails, fall back to normal login route with prompt=none
-      window.location.href = `${API_URL}/login?prompt=none`;
-    }
+    // Use direct navigation to ensure session cookie is properly set before redirect
+    window.location.href = `${API_URL}/login?prompt=none`;
   },
 
   async login() {
     console.log('Initiating login...');
     this.clearAuthStatusCache();
-    try {
-      // First try to get the login URL
-      const response = await axios.get(`${API_URL}/login-url`);
-      const loginUrl = response.data.url;
-      console.log('Redirecting to login URL:', loginUrl);
-      window.location.href = loginUrl;
-    } catch (error) {
-      console.error('Error getting login URL:', error);
-      // Fallback to direct login route
-      window.location.href = `${API_URL}/login`;
-    }
+    // Use direct navigation to /auth/login instead of two-step XHR approach
+    // This ensures the session cookie is properly set before the redirect to the OIDC provider
+    // (avoids race condition where browser navigates before processing Set-Cookie header)
+    window.location.href = `${API_URL}/login`;
   },
 
   async logout() {

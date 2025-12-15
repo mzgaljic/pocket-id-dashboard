@@ -66,13 +66,18 @@ async function generateAuthUrl(req, { prompt } = {}) {
     req.session.codeVerifier = codeVerifier;
     req.session.state = state;
 
-    // Force session save to ensure values are persisted
-    req.session.save((err) => {
-        if (err) {
-            logger.error('Error saving session:', err);
-        } else {
-            logger.debug('Session saved successfully with code verifier and state');
-        }
+    // Wait for session save to complete before returning the auth URL
+    // This prevents a race condition where the redirect happens before the session is persisted
+    await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+            if (err) {
+                logger.error('Error saving session:', err);
+                reject(err);
+            } else {
+                logger.debug('Session saved successfully with code verifier and state');
+                resolve();
+            }
+        });
     });
 
     // Build the authorization URL using the proper API
