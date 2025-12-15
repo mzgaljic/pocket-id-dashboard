@@ -33,6 +33,25 @@ const isAdmin = computed(() => {
 });
 
 onMounted(async () => {
+  // Detect if we just returned from a failed silent login
+  const urlParams = new URLSearchParams(window.location.search);
+  const silentFailed = urlParams.get('silent') === 'failed';
+
+  if (silentFailed) {
+    // Clean up the URL without reloading
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+  }
+
+  // Consume "just logged out" flag (only affects this page load)
+  const justLoggedOut = sessionStorage.getItem('justLoggedOut') === 'true';
+  sessionStorage.removeItem('justLoggedOut');
+
+  // If we just logged out or silent login just failed, skip silent login once
+  if (justLoggedOut || silentFailed) {
+    sessionStorage.setItem('skipSilentLoginOnce', 'true');
+  }
+
   // Clear auth cache if session expired (helps ensure fresh auth check)
   if (sessionStorage.getItem('sessionExpired') === 'true') {
     authService.clearAuthStatusCache();
@@ -72,18 +91,19 @@ async function checkAuth() {
     if (authenticated) {
       user.value = userData;
       console.log('User is authenticated:', userData);
-      sessionStorage.removeItem('silentLoginAttempted');
-      sessionStorage.removeItem('suppressSilentLogin');
+      // Clear any one-time skip flags on successful auth
+      sessionStorage.removeItem('skipSilentLoginOnce');
 
     } else {
       console.log('User is not authenticated');
       user.value = null;
 
-      // Attempt silent login once (works even when landing directly on '/')
-      const silentAttempted = sessionStorage.getItem('silentLoginAttempted') === 'true';
-      const suppressSilent = sessionStorage.getItem('suppressSilentLogin') === 'true';
-      if (!silentAttempted && oidcInitialized && !suppressSilent) {
-        sessionStorage.setItem('silentLoginAttempted', 'true');
+      // Skip silent login only if told to do so for this page load
+      const skipSilentLogin = sessionStorage.getItem('skipSilentLoginOnce') === 'true';
+      sessionStorage.removeItem('skipSilentLoginOnce');
+
+      // Attempt silent login unless we were asked to skip it this time
+      if (oidcInitialized && !skipSilentLogin) {
         await authService.silentLogin();
         return;
       }
@@ -221,15 +241,17 @@ const getUserInitials = (name) => {
 
 const login = () => {
   console.log('Initiating login...');
-  sessionStorage.removeItem('silentLoginAttempted');
-  sessionStorage.removeItem('suppressSilentLogin');
+  // Clear any one-time skip flags before manual login
+  sessionStorage.removeItem('skipSilentLoginOnce');
+  sessionStorage.removeItem('justLoggedOut');
   authService.login();
 };
 
 const logout = () => {
   try {
     isLoggingOut.value = true;
-    sessionStorage.setItem('suppressSilentLogin', 'true');
+    // Mark that we just logged out so next load shows the login screen once
+    sessionStorage.setItem('justLoggedOut', 'true');
     // Redirect happens immediately; no need to await
     authService.logout();
   } catch (error) {
