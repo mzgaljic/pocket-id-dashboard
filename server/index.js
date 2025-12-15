@@ -29,6 +29,11 @@ if (!validateEnvironment()) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use((req, res, next) => {
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    next();
+});
+
 // Print environment variables (excluding secrets)
 logger.info('Environment:', {
     NODE_ENV: process.env.NODE_ENV,
